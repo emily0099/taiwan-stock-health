@@ -271,11 +271,9 @@ async function fetchFinMind(dataset, stockId) {
     data_id: stockId,
     start_date: '2022-01-01',
   });
+  if (token) params.append('token', token);
 
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(`${FINMIND_URL}?${params}`, { headers });
+  const res = await fetch(`${FINMIND_URL}?${params}`);
   if (!res.ok) throw new Error(`API 錯誤: ${res.status}`);
   const json = await res.json();
   if (json.status !== 200) throw new Error(json.msg || 'API 回傳錯誤');
@@ -341,101 +339,68 @@ async function analyze() {
 
     // ── Calculate indicators ──────────────────────────────────────
 
-    // 基礎數據
-    const ocf           = getLatestYear(cashflow, 'CashFlowsFromOperatingActivities');
-    const cashDividend  = getLatestYear(cashflow, 'CashDividendsPaid') || 0;
-    const currentLiab   = getLatest(balance, 'CurrentLiabilities');
-    const totalAssets   = getLatest(balance, 'Assets');
-    // 用兩期平均計算總資產週轉率（B1公式）
-    const balanceSorted = balance.filter(d => d.type === 'Assets').sort((a,b) => b.date.localeCompare(a.date));
-    const assetsBegin   = balanceSorted[1]?.value ?? totalAssets;
-    const assetsAvg     = (totalAssets + assetsBegin) / 2;
-    const cash          = getLatest(balance, 'CashAndCashEquivalents');
-    const netIncome     = getLatestYear(income, 'NetIncome');
-    const revenue       = getLatestYear(income, 'Revenue');
-    const grossProfit   = getLatestYear(income, 'GrossProfit');
-    const operatingIncome = getLatestYear(income, 'OperatingIncome');
-    const equity        = getLatest(balance, 'Equity');
-    const totalLiab     = getLatest(balance, 'Liabilities');
-    const currentAssets = getLatest(balance, 'CurrentAssets');
-    const inventory     = getLatest(balance, 'Inventories') || 0;
-    const prepaid       = getLatest(balance, 'PrepaidExpenses') || 0;
-    const ppe           = getLatest(balance, 'PropertyPlantAndEquipmentNet');
-    const nonCurrentLiab = getLatest(balance, 'NoncurrentLiabilities') || 0;
-    const receivables   = getLatest(balance, 'AccountsReceivableNet');
-    // 固定資產毛額 + 長期投資 + 其他資產 + 營運資金（A1-3分母）
-    const longTermInv   = getLatest(balance, 'LongTermInvestments') || 0;
-    const otherAssets   = getLatest(balance, 'OtherAssets') || 0;
-    const workingCapital = currentAssets && currentLiab ? currentAssets - currentLiab : 0;
-    const reinvestDenom = (ppe || 0) + longTermInv + otherAssets + workingCapital;
-
     // A: 現金流量
-    // A1: 營業現金流 ÷ 流動負債
-    const cashFlowRatio = (ocf && currentLiab) ? ocf / currentLiab : null;
-    // A1-3: (營業現金流 - 現金股利) ÷ (固定資產+長期投資+其他資產+營運資金)
-    const cashReinvestRatio = (ocf && reinvestDenom) ? (ocf - Math.abs(cashDividend)) / reinvestDenom : null;
-    // A2: 現金 ÷ 總資產
-    const cashToAssets = (cash && totalAssets) ? cash / totalAssets : null;
-    // A3: 365 ÷ (營收 ÷ 應收帳款) = 應收帳款 × 365 ÷ 營收
-    const receivableDays = (receivables && revenue) ? receivables * 365 / revenue : null;
+    const ocf        = getLatestYear(cashflow, 'CashFlowsFromOperatingActivities');   // 營業現金流
+    const currentLiab = getLatest(balance, 'CurrentLiabilities');
+    const totalAssets = getLatest(balance, 'Assets');
+    const capex      = getLatestYear(cashflow, 'AcquisitionOfPropertyPlantAndEquipment');
+    const netIncome  = getLatestYear(income, 'NetIncome');
+    const cash       = getLatest(balance, 'CashAndCashEquivalents');
+
+    const cashFlowRatio    = currentLiab ? ocf / currentLiab : null;
+    const cashReinvestRatio = totalAssets ? ocf / totalAssets : null;
+    const cashToAssets     = (cash && totalAssets) ? cash / totalAssets : null;
 
     // B: 經營能力
-    // B1: 營業利益 ÷ 平均總資產（公式寫的是這個）
-    const assetTurnover = (operatingIncome && assetsAvg) ? operatingIncome / assetsAvg : null;
+    const revenue    = getLatestYear(income, 'Revenue');
+    const totalAssetAvg = totalAssets; // simplified: use latest
+    const assetTurnover  = (revenue && totalAssets) ? revenue / totalAssets : null;
 
     // C: 獲利能力
-    const grossMargin    = (grossProfit && revenue) ? grossProfit / revenue : null;
-    const opMargin       = (operatingIncome && revenue) ? operatingIncome / revenue : null;
+    const grossProfit   = getLatestYear(income, 'GrossProfit');
+    const operatingIncome = getLatestYear(income, 'OperatingIncome');
+    const grossMargin   = (grossProfit && revenue) ? grossProfit / revenue : null;
+    const opMargin      = (operatingIncome && revenue) ? operatingIncome / revenue : null;
     const opSafetyMargin = (grossMargin && opMargin) ? opMargin / grossMargin : null;
-    const netMargin      = (netIncome && revenue) ? netIncome / revenue : null;
-    const roe            = (netIncome && equity) ? netIncome / equity : null;
+    const netMargin     = (netIncome && revenue) ? netIncome / revenue : null;
+    const equity        = getLatest(balance, 'Equity');
+    const roe           = (netIncome && equity) ? netIncome / equity : null;
 
     // D: 財務結構
-    // D1: 負債總額 ÷ 資產總額
-    const debtRatio      = (totalLiab && totalAssets) ? totalLiab / totalAssets : null;
-    // D2: (股東權益 + 非流動負債) ÷ 不動產廠房設備
-    const longTermFundRatio = (equity && ppe) ? (equity + nonCurrentLiab) / ppe : null;
+    const totalLiab  = getLatest(balance, 'Liabilities');
+    const debtRatio  = (totalLiab && totalAssets) ? totalLiab / totalAssets : null;
+    const ppe        = getLatest(balance, 'PropertyPlantAndEquipmentNet');
+    const longTermFund = equity && ppe ? (equity / ppe) : null; // simplified
 
     // E: 償債能力
-    // E1: 流動資產 ÷ 流動負債
-    const currentRatio   = (currentAssets && currentLiab) ? currentAssets / currentLiab : null;
-    // E2: (流動資產 - 存貨 - 預付費用) ÷ 流動負債
-    const quickRatio     = (currentAssets && currentLiab) ? (currentAssets - inventory - prepaid) / currentLiab : null;
-
-    // B2: 平均銷貨日數 = 存貨 × 365 ÷ 營收（存貨週轉率倒數）
-    const inventoryDays = (inventory && revenue) ? inventory * 365 / revenue : null;
-    // C5: EPS
-    const eps = getLatest(income, 'EPS') ?? getLatest(income, 'BasicEarningsPerShare') ?? null;
+    const currentAssets = getLatest(balance, 'CurrentAssets');
+    const currentRatio  = (currentAssets && currentLiab) ? currentAssets / currentLiab : null;
+    const inventory     = getLatest(balance, 'Inventories') || 0;
+    const quickRatio    = (currentAssets && currentLiab) ? (currentAssets - inventory) / currentLiab : null;
 
     // ── Build evaluation ──────────────────────────────────────────
-    // pass: true/false = 紅綠燈判斷；pass: null = 僅顯示數值不判斷
     const indicators = {
       A: [
-        { name: '現金流量比率 (A1)', value: cashFlowRatio !== null ? pct(cashFlowRatio) : '—', pass: cashFlowRatio !== null ? cashFlowRatio > 1 : null, formula: '營業現金流 ÷ 流動負債 > 100%' },
-        { name: '現金再投資比率 (A1-3)', value: cashReinvestRatio !== null ? pct(cashReinvestRatio) : '—', pass: cashReinvestRatio !== null ? cashReinvestRatio > 0.1 : null, formula: '(營業現金流－股利) ÷ 長期資產+營運資金 > 10%' },
-        { name: '現金佔總資產 (A2)', value: cashToAssets !== null ? pct(cashToAssets) : '—', pass: cashToAssets !== null ? cashToAssets >= 0.1 && cashToAssets <= 0.25 : null, formula: '現金 ÷ 總資產，10%~25%' },
-        { name: '平均收現天數 (A3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: '應收帳款 × 365 ÷ 營收 < 90天' },
+        { name: '現金流量比率', value: cashFlowRatio !== null ? pct(cashFlowRatio) : '—', pass: cashFlowRatio !== null ? cashFlowRatio > 1 : null },
+        { name: '現金再投資比率', value: cashReinvestRatio !== null ? pct(cashReinvestRatio) : '—', pass: cashReinvestRatio !== null ? cashReinvestRatio > 0.1 : null },
+        { name: '現金佔總資產比率', value: cashToAssets !== null ? pct(cashToAssets) : '—', pass: cashToAssets !== null ? cashToAssets >= 0.1 && cashToAssets <= 0.25 : null },
       ],
       B: [
-        { name: '總資產週轉率 (B1)', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? assetTurnover > 1 : null, formula: '營業利益 ÷ 平均總資產 > 1' },
-        { name: '平均銷貨日數 (B2)', value: inventoryDays !== null ? fmt(inventoryDays, 0) + '天' : '—', pass: null, formula: '存貨 × 365 ÷ 營收，與同產業比較' },
-        { name: '平均收現日數 (B3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: '應收帳款 × 365 ÷ 營收 < 90天' },
+        { name: '總資產週轉率', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? assetTurnover > 1 : null },
       ],
       C: [
-        { name: '毛利率 (C1)', value: pct(grossMargin), pass: null, formula: '毛利 ÷ 營收，與同產業比較' },
-        { name: '營業利益率 (C2)', value: pct(opMargin), pass: null, formula: '營業利益 ÷ 營收，與同產業比較' },
-        { name: '經營安全邊際 (C3)', value: pct(opSafetyMargin), pass: opSafetyMargin !== null ? opSafetyMargin > 0.6 : null, formula: '營業利益率 ÷ 毛利率 > 60%' },
-        { name: '淨利率 (C4)', value: pct(netMargin), pass: netMargin !== null ? netMargin > 0.02 : null, formula: '淨利 ÷ 營收 > 2%' },
-        { name: 'EPS 基本每股盈餘 (C5)', value: eps !== null ? fmt(eps) + ' 元' : '—', pass: null, formula: '顯示數值，自行判斷趨勢' },
-        { name: 'ROE 股東報酬率 (C6)', value: pct(roe), pass: roe !== null ? roe > 0.2 : null, formula: '淨利 ÷ 股東權益 > 20%' },
+        { name: '毛利率', value: pct(grossMargin), pass: grossMargin !== null ? grossMargin > 0.1 : null },
+        { name: '營業利益率', value: pct(opMargin), pass: opMargin !== null ? opMargin > 0.05 : null },
+        { name: '經營安全邊際', value: pct(opSafetyMargin), pass: opSafetyMargin !== null ? opSafetyMargin > 0.6 : null },
+        { name: '淨利率', value: pct(netMargin), pass: netMargin !== null ? netMargin > 0.02 : null },
+        { name: 'ROE 股東報酬率', value: pct(roe), pass: roe !== null ? roe > 0.2 : null },
       ],
       D: [
-        { name: '負債佔資產比率 (D1)', value: pct(debtRatio), pass: null, formula: '負債總額 ÷ 資產總額，顯示數值' },
-        { name: '長期資金佔廠設比 (D2)', value: longTermFundRatio !== null ? pct(longTermFundRatio) : '—', pass: null, formula: '(股東權益+非流動負債) ÷ 廠房設備，顯示數值' },
+        { name: '負債佔資產比率', value: pct(debtRatio), pass: debtRatio !== null ? debtRatio < 0.5 : null },
       ],
       E: [
-        { name: '流動比率 (E1)', value: currentRatio !== null ? pct(currentRatio) : '—', pass: currentRatio !== null ? currentRatio > 2.5 : null, formula: '流動資產 ÷ 流動負債 > 250%' },
-        { name: '速動比率 (E2)', value: quickRatio !== null ? pct(quickRatio) : '—', pass: quickRatio !== null ? quickRatio > 1.5 : null, formula: '(流動資產－存貨－預付) ÷ 流動負債 > 150%' },
+        { name: '流動比率', value: currentRatio !== null ? pct(currentRatio) : '—', pass: currentRatio !== null ? currentRatio > 2.5 : null },
+        { name: '速動比率', value: quickRatio !== null ? pct(quickRatio) : '—', pass: quickRatio !== null ? quickRatio > 1.5 : null },
       ],
     };
 
@@ -445,22 +410,16 @@ async function analyze() {
       '損益表筆數': income.length,
       '資產負債表筆數': balance.length,
       '營業現金流(近4季)': ocf,
-      '現金股利': cashDividend,
       '流動負債': currentLiab,
       '總資產': totalAssets,
-      '平均總資產': assetsAvg,
       '現金': cash,
-      '應收帳款': receivables,
-      '存貨': inventory,
-      '預付費用': prepaid,
       '營收(近4季)': revenue,
       '毛利(近4季)': grossProfit,
       '營業利益(近4季)': operatingIncome,
       '淨利(近4季)': netIncome,
       '股東權益': equity,
-      '非流動負債': nonCurrentLiab,
-      '廠房設備(淨額)': ppe,
       '流動資產': currentAssets,
+      '存貨': inventory,
     };
 
     renderResult(stockId, stockName, latestDate, indicators, rawData);
@@ -509,16 +468,10 @@ function renderResult(code, name, date, indicators, rawData) {
 
     const rows = items.map(i => `
       <div class="indicator-row">
-        <div>
-          <span class="indicator-name">${i.name}</span>
-          ${i.formula ? `<div style="font-size:10px;color:var(--muted);opacity:0.6;margin-top:2px">${i.formula}</div>` : ''}
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <span class="indicator-name">${i.name}</span>
+        <div style="display:flex;align-items:center;">
           <span class="indicator-value">${i.value}</span>
-          ${i.pass === null
-            ? `<span style="font-size:9px;color:var(--muted);border:1px solid var(--border);padding:1px 5px;border-radius:2px;letter-spacing:1px">參考</span>`
-            : `<div class="status-dot ${i.pass ? 'pass' : 'fail'}"></div>`
-          }
+          <div class="status-dot ${i.pass === null ? 'neutral' : i.pass ? 'pass' : 'fail'}"></div>
         </div>
       </div>
     `).join('');
