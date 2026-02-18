@@ -402,31 +402,40 @@ async function analyze() {
     // E2: (流動資產 - 存貨 - 預付費用) ÷ 流動負債
     const quickRatio     = (currentAssets && currentLiab) ? (currentAssets - inventory - prepaid) / currentLiab : null;
 
+    // B2: 平均銷貨日數 = 存貨 × 365 ÷ 營收（存貨週轉率倒數）
+    const inventoryDays = (inventory && revenue) ? inventory * 365 / revenue : null;
+    // C5: EPS
+    const eps = getLatest(income, 'EPS') ?? getLatest(income, 'BasicEarningsPerShare') ?? null;
+
     // ── Build evaluation ──────────────────────────────────────────
+    // pass: true/false = 紅綠燈判斷；pass: null = 僅顯示數值不判斷
     const indicators = {
       A: [
-        { name: '現金流量比率 (A1)', value: cashFlowRatio !== null ? pct(cashFlowRatio) : '—', pass: cashFlowRatio !== null ? cashFlowRatio > 1 : null, formula: '營業現金流 ÷ 流動負債' },
-        { name: '現金再投資比率 (A1-3)', value: cashReinvestRatio !== null ? pct(cashReinvestRatio) : '—', pass: cashReinvestRatio !== null ? cashReinvestRatio > 0.1 : null, formula: '(營業現金流－股利) ÷ 長期資產+營運資金' },
-        { name: '現金佔總資產 (A2)', value: cashToAssets !== null ? pct(cashToAssets) : '—', pass: cashToAssets !== null ? cashToAssets >= 0.1 && cashToAssets <= 0.25 : null, formula: '現金 ÷ 總資產' },
-        { name: '平均收現天數 (A3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: '應收帳款 × 365 ÷ 營收' },
+        { name: '現金流量比率 (A1)', value: cashFlowRatio !== null ? pct(cashFlowRatio) : '—', pass: cashFlowRatio !== null ? cashFlowRatio > 1 : null, formula: '營業現金流 ÷ 流動負債 > 100%' },
+        { name: '現金再投資比率 (A1-3)', value: cashReinvestRatio !== null ? pct(cashReinvestRatio) : '—', pass: cashReinvestRatio !== null ? cashReinvestRatio > 0.1 : null, formula: '(營業現金流－股利) ÷ 長期資產+營運資金 > 10%' },
+        { name: '現金佔總資產 (A2)', value: cashToAssets !== null ? pct(cashToAssets) : '—', pass: cashToAssets !== null ? cashToAssets >= 0.1 && cashToAssets <= 0.25 : null, formula: '現金 ÷ 總資產，10%~25%' },
+        { name: '平均收現天數 (A3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: '應收帳款 × 365 ÷ 營收 < 90天' },
       ],
       B: [
-        { name: '總資產週轉率 (B1)', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? assetTurnover > 1 : null, formula: '營業利益 ÷ 平均總資產' },
+        { name: '總資產週轉率 (B1)', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? assetTurnover > 1 : null, formula: '營業利益 ÷ 平均總資產 > 1' },
+        { name: '平均銷貨日數 (B2)', value: inventoryDays !== null ? fmt(inventoryDays, 0) + '天' : '—', pass: null, formula: '存貨 × 365 ÷ 營收，與同產業比較' },
+        { name: '平均收現日數 (B3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: '應收帳款 × 365 ÷ 營收 < 90天' },
       ],
       C: [
-        { name: '毛利率 (C1)', value: pct(grossMargin), pass: grossMargin !== null ? grossMargin > 0.1 : null, formula: '毛利 ÷ 營收' },
-        { name: '營業利益率 (C2)', value: pct(opMargin), pass: opMargin !== null ? opMargin > 0.05 : null, formula: '營業利益 ÷ 營收' },
-        { name: '經營安全邊際 (C3)', value: pct(opSafetyMargin), pass: opSafetyMargin !== null ? opSafetyMargin > 0.6 : null, formula: '營業利益率 ÷ 毛利率' },
-        { name: '淨利率 (C4)', value: pct(netMargin), pass: netMargin !== null ? netMargin > 0.02 : null, formula: '淨利 ÷ 營收' },
-        { name: 'ROE 股東報酬率 (C6)', value: pct(roe), pass: roe !== null ? roe > 0.2 : null, formula: '淨利 ÷ 股東權益' },
+        { name: '毛利率 (C1)', value: pct(grossMargin), pass: null, formula: '毛利 ÷ 營收，與同產業比較' },
+        { name: '營業利益率 (C2)', value: pct(opMargin), pass: null, formula: '營業利益 ÷ 營收，與同產業比較' },
+        { name: '經營安全邊際 (C3)', value: pct(opSafetyMargin), pass: opSafetyMargin !== null ? opSafetyMargin > 0.6 : null, formula: '營業利益率 ÷ 毛利率 > 60%' },
+        { name: '淨利率 (C4)', value: pct(netMargin), pass: netMargin !== null ? netMargin > 0.02 : null, formula: '淨利 ÷ 營收 > 2%' },
+        { name: 'EPS 基本每股盈餘 (C5)', value: eps !== null ? fmt(eps) + ' 元' : '—', pass: null, formula: '顯示數值，自行判斷趨勢' },
+        { name: 'ROE 股東報酬率 (C6)', value: pct(roe), pass: roe !== null ? roe > 0.2 : null, formula: '淨利 ÷ 股東權益 > 20%' },
       ],
       D: [
-        { name: '負債佔資產比率 (D1)', value: pct(debtRatio), pass: debtRatio !== null ? debtRatio < 0.5 : null, formula: '負債總額 ÷ 資產總額' },
-        { name: '長期資金佔廠設比 (D2)', value: longTermFundRatio !== null ? pct(longTermFundRatio) : '—', pass: longTermFundRatio !== null ? longTermFundRatio > 1 : null, formula: '(股東權益+非流動負債) ÷ 廠房設備' },
+        { name: '負債佔資產比率 (D1)', value: pct(debtRatio), pass: null, formula: '負債總額 ÷ 資產總額，顯示數值' },
+        { name: '長期資金佔廠設比 (D2)', value: longTermFundRatio !== null ? pct(longTermFundRatio) : '—', pass: null, formula: '(股東權益+非流動負債) ÷ 廠房設備，顯示數值' },
       ],
       E: [
-        { name: '流動比率 (E1)', value: currentRatio !== null ? pct(currentRatio) : '—', pass: currentRatio !== null ? currentRatio > 2.5 : null, formula: '流動資產 ÷ 流動負債' },
-        { name: '速動比率 (E2)', value: quickRatio !== null ? pct(quickRatio) : '—', pass: quickRatio !== null ? quickRatio > 1.5 : null, formula: '(流動資產－存貨－預付) ÷ 流動負債' },
+        { name: '流動比率 (E1)', value: currentRatio !== null ? pct(currentRatio) : '—', pass: currentRatio !== null ? currentRatio > 2.5 : null, formula: '流動資產 ÷ 流動負債 > 250%' },
+        { name: '速動比率 (E2)', value: quickRatio !== null ? pct(quickRatio) : '—', pass: quickRatio !== null ? quickRatio > 1.5 : null, formula: '(流動資產－存貨－預付) ÷ 流動負債 > 150%' },
       ],
     };
 
@@ -504,9 +513,12 @@ function renderResult(code, name, date, indicators, rawData) {
           <span class="indicator-name">${i.name}</span>
           ${i.formula ? `<div style="font-size:10px;color:var(--muted);opacity:0.6;margin-top:2px">${i.formula}</div>` : ''}
         </div>
-        <div style="display:flex;align-items:center;">
+        <div style="display:flex;align-items:center;gap:8px">
           <span class="indicator-value">${i.value}</span>
-          <div class="status-dot ${i.pass === null ? 'neutral' : i.pass ? 'pass' : 'fail'}"></div>
+          ${i.pass === null
+            ? `<span style="font-size:9px;color:var(--muted);border:1px solid var(--border);padding:1px 5px;border-radius:2px;letter-spacing:1px">參考</span>`
+            : `<div class="status-dot ${i.pass ? 'pass' : 'fail'}"></div>`
+          }
         </div>
       </div>
     `).join('');
