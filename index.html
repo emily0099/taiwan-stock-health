@@ -271,9 +271,11 @@ async function fetchFinMind(dataset, stockId) {
     data_id: stockId,
     start_date: '2022-01-01',
   });
-  if (token) params.append('token', token);
 
-  const res = await fetch(`${FINMIND_URL}?${params}`);
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${FINMIND_URL}?${params}`, { headers });
   if (!res.ok) throw new Error(`API 錯誤: ${res.status}`);
   const json = await res.json();
   if (json.status !== 200) throw new Error(json.msg || 'API 回傳錯誤');
