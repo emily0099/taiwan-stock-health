@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股健診</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --border: #1e2d45;
+    --gold: #c9a84c;
+    --gold-light: #f0d080;
+    --red: #ff4d6d;
+    --green: #4ade80;
+    --text: #e8e0d0;
+    --muted: #6b7a99;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif TC', serif;
+    min-height: 100vh;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 20% 20%, rgba(201,168,76,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .container { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
+
+  header { text-align: center; margin-bottom: 48px; }
+  .logo-mark { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 4px; color: var(--gold); margin-bottom: 16px; }
+  h1 { font-size: clamp(36px, 6vw, 60px); font-weight: 900; letter-spacing: -1px; }
+  h1 span { color: var(--gold); }
+  .subtitle { margin-top: 10px; color: var(--muted); font-size: 13px; letter-spacing: 1px; }
+
+  /* Token setup */
+  .token-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .token-box label { font-size: 12px; color: var(--gold); letter-spacing: 2px; white-space: nowrap; }
+  .token-box input {
+    flex: 1;
+    min-width: 200px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+  }
+  .token-box input:focus { border-color: var(--gold); }
+  .token-hint { font-size: 11px; color: var(--muted); width: 100%; }
+  .token-hint a { color: var(--gold); }
+
+  .search-box { display: flex; gap: 12px; margin-bottom: 16px; }
+  .search-box input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px 24px;
+    font-size: 22px;
+    font-family: 'Space Mono', monospace;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+    letter-spacing: 3px;
+  }
+  .search-box input:focus { border-color: var(--gold); }
+  .search-box button {
+    background: var(--gold);
+    color: #0a0e1a;
+    border: none;
+    border-radius: 4px;
+    padding: 16px 32px;
+    font-size: 14px;
+    font-family: 'Noto Serif TC', serif;
+    font-weight: 900;
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .search-box button:hover { background: var(--gold-light); transform: translateY(-1px); }
+
+  .samples { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 40px; }
+  .sample-chip {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 2px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+  }
+  .sample-chip:hover { border-color: var(--gold); color: var(--gold); }
+
+  .loading { display: none; text-align: center; padding: 60px; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 13px; letter-spacing: 2px; }
+  .loading.show { display: block; }
+  .loading-bar {
+    width: 200px;
+    height: 2px;
+    background: var(--border);
+    margin: 20px auto 0;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .loading-bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: var(--gold);
+    animation: slide 1.2s ease-in-out infinite;
+    border-radius: 2px;
+  }
+  @keyframes slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+  }
+
+  .error-box {
+    display: none;
+    background: rgba(255,77,109,0.1);
+    border: 1px solid rgba(255,77,109,0.3);
+    border-radius: 4px;
+    padding: 16px 20px;
+    color: var(--red);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  .error-box.show { display: block; }
+
+  .result { display: none; }
+  .result.show { display: block; animation: fadeUp 0.5s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  .stock-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 40px; gap: 24px; flex-wrap: wrap; }
+  .stock-name { font-size: 13px; font-family: 'Space Mono', monospace; color: var(--gold); letter-spacing: 2px; margin-bottom: 6px; }
+  .stock-title { font-size: 36px; font-weight: 900; letter-spacing: -1px; }
+  .stock-period { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'Space Mono', monospace; }
+
+  .verdict-badge { padding: 10px 24px; border-radius: 2px; font-size: 14px; font-weight: 900; letter-spacing: 3px; align-self: center; }
+  .verdict-badge.good { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
+  .verdict-badge.bad { background: rgba(255,77,109,0.15); color: var(--red); border: 1px solid rgba(255,77,109,0.3); }
+  .verdict-badge.mid { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+
+  .score-section { display: grid; grid-template-columns: 200px 1fr; gap: 40px; margin-bottom: 48px; align-items: center; }
+  @media (max-width: 600px) { .score-section { grid-template-columns: 1fr; } }
+
+  .score-ring-wrap { position: relative; width: 180px; height: 180px; margin: 0 auto; }
+  .score-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .score-num { font-family: 'Space Mono', monospace; font-size: 42px; font-weight: 700; line-height: 1; }
+  .score-label { font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-top: 4px; }
+
+  .radar-wrap { height: 260px; position: relative; }
+
+  .indicators { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px; }
+  @media (max-width: 550px) { .indicators { grid-template-columns: 1fr; } }
+
+  .category { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 20px; position: relative; overflow: hidden; }
+  .category::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .category.pass::before { background: var(--green); }
+  .category.fail::before { background: var(--red); }
+  .category.partial::before { background: var(--gold); }
+
+  .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .category-name { font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+  .category-score { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); }
+
+  .indicator-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+  .indicator-row:last-child { border-bottom: none; }
+  .indicator-name { color: var(--muted); }
+  .indicator-value { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-left: 8px; }
+  .status-dot.pass { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.fail { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .status-dot.neutral { background: var(--muted); }
+
+  .verdict-text { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 4px; padding: 24px 28px; }
+  .verdict-text h3 { font-size: 12px; letter-spacing: 3px; color: var(--gold); margin-bottom: 12px; }
+  .verdict-text p { line-height: 1.9; font-size: 14px; color: #b8b0a0; }
+
+  .raw-data { margin-top: 16px; }
+  .raw-toggle { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; font-size: 11px; font-family: 'Space Mono', monospace; cursor: pointer; border-radius: 2px; letter-spacing: 1px; }
+  .raw-toggle:hover { border-color: var(--gold); color: var(--gold); }
+  .raw-content { display: none; margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); overflow-x: auto; line-height: 1.8; }
+  .raw-content.show { display: block; }
+
+  .disclaimer { text-align: center; margin-top: 40px; font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; letter-spacing: 1px; opacity: 0.6; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="logo-mark">Taiwan Stock Analyzer · FinMind API</div>
+    <h1>台股<span>健診</span></h1>
+    <p class="subtitle">財報五大面向 · 真實財報數據 · 自動評分</p>
+  </header>
+
+  <!-- Token 設定 -->
+  <div class="token-box">
+    <label>FINMIND TOKEN</label>
+    <input type="password" id="tokenInput" placeholder="貼上你的 FinMind API Token（可不填，但每小時限 300 次）" />
+    <span class="token-hint">
+      還沒有 Token？ 
+      <a href="https://finmindtrade.com/" target="_blank">到 FinMind 官網註冊</a>
+      → 登入後在個人頁面取得 Token → 貼回這裡
+    </span>
+  </div>
+
+  <div class="search-box">
+    <input type="text" id="stockInput" placeholder="2330" maxlength="6" />
+    <button onclick="analyze()">健診 →</button>
+  </div>
+
+  <div class="samples">
+    <span style="font-size:11px;color:var(--muted);align-self:center;font-family:'Space Mono',monospace;">試試看：</span>
+    <button class="sample-chip" onclick="quickSearch('2330')">2330 台積電</button>
+    <button class="sample-chip" onclick="quickSearch('2412')">2412 中華電</button>
+    <button class="sample-chip" onclick="quickSearch('2454')">2454 聯發科</button>
+    <button class="sample-chip" onclick="quickSearch('2308')">2308 台達電</button>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+  <div class="loading" id="loading">
+    正在向 FinMind 抓取財報資料
+    <div class="loading-bar"></div>
+  </div>
+  <div class="result" id="result"></div>
+
+  <p class="disclaimer">⚠ 資料來源：FinMind 開源財報資料。本工具僅供學習研究，不構成投資建議。</p>
+</div>
+
+<script>
+const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
+
+const CATEGORY_NAMES = { A: '現金流量', B: '經營能力', C: '獲利能力', D: '財務結構', E: '償債能力' };
+
+let radarChart = null;
+let ringChart = null;
+
+function getToken() {
+  return document.getElementById('tokenInput').value.trim();
+}
+
+async function fetchFinMind(dataset, stockId) {
+  const token = getToken();
+  const params = new URLSearchParams({
+    dataset,
+    data_id: stockId,
+    start_date: '2022-01-01',
+  });
+  if (token) params.append('token', token);
+
+  const res = await fetch(`${FINMIND_URL}?${params}`);
+  if (!res.ok) throw new Error(`API 錯誤: ${res.status}`);
+  const json = await res.json();
+  if (json.status !== 200) throw new Error(json.msg || 'API 回傳錯誤');
+  return json.data;
+}
+
+function getLatest(data, type) {
+  // Filter by type and get most recent
+  const filtered = data.filter(d => d.type === type).sort((a, b) => b.date.localeCompare(a.date));
+  return filtered[0]?.value ?? null;
+}
+
+function getLatestYear(data, type) {
+  // Sum last 4 quarters for annual value
+  const filtered = data.filter(d => d.type === type).sort((a, b) => b.date.localeCompare(a.date));
+  if (!filtered.length) return null;
+  return filtered.slice(0, 4).reduce((s, d) => s + (d.value || 0), 0);
+}
+
+function safe(val, digits = 1) {
+  if (val === null || val === undefined || isNaN(val)) return null;
+  return parseFloat(val.toFixed(digits));
+}
+
+function pct(val) {
+  if (val === null) return '—';
+  return (val * 100).toFixed(1) + '%';
+}
+
+function fmt(val, digits = 2) {
+  if (val === null) return '—';
+  return val.toFixed(digits);
+}
+
+async function analyze() {
+  const stockId = document.getElementById('stockInput').value.trim();
+  if (!stockId) return;
+
+  document.getElementById('errorBox').classList.remove('show');
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('loading').classList.add('show');
+
+  try {
+    // Fetch all needed datasets in parallel
+    const [cashflow, income, balance] = await Promise.all([
+      fetchFinMind('TaiwanStockCashFlowsStatement', stockId),
+      fetchFinMind('TaiwanStockFinancialStatements', stockId),
+      fetchFinMind('TaiwanStockBalanceSheet', stockId),
+    ]);
+
+    // Get company name via stock info endpoint
+    let stockName = stockId;
+    try {
+      const infoRes = await fetch(`${FINMIND_URL}?dataset=TaiwanStockInfo`);
+      const infoJson = await infoRes.json();
+      const info = infoJson.data?.find(d => d.stock_id === stockId);
+      if (info) stockName = info.company_name || stockId;
+    } catch(e) {}
+
+    const latestDate = [...cashflow, ...income, ...balance]
+      .map(d => d.date)
+      .sort((a, b) => b.localeCompare(a))[0] || '最新';
+
+    // ── Calculate indicators ──────────────────────────────────────
+
+    // A: 現金流量
+    const ocf        = getLatestYear(cashflow, 'CashFlowsFromOperatingActivities');   // 營業現金流
+    const currentLiab = getLatest(balance, 'CurrentLiabilities');
+    const totalAssets = getLatest(balance, 'Assets');
+    const capex      = getLatestYear(cashflow, 'AcquisitionOfPropertyPlantAndEquipment');
+    const netIncome  = getLatestYear(income, 'NetIncome');
+    const cash       = getLatest(balance, 'CashAndCashEquivalents');
+
+    const cashFlowRatio    = currentLiab ? ocf / currentLiab : null;
+    const cashReinvestRatio = totalAssets ? ocf / totalAssets : null;
+    const cashToAssets     = (cash && totalAssets) ? cash / totalAssets : null;
+
+    // B: 經營能力
+    const revenue    = getLatestYear(income, 'Revenue');
+    const totalAssetAvg = totalAssets; // simplified: use latest
+    const assetTurnover  = (revenue && totalAssets) ? revenue / totalAssets : null;
+
+    // C: 獲利能力
+    const grossProfit   = getLatestYear(income, 'GrossProfit');
+    const operatingIncome = getLatestYear(income, 'OperatingIncome');
+    const grossMargin   = (grossProfit && revenue) ? grossProfit / revenue : null;
+    const opMargin      = (operatingIncome && revenue) ? operatingIncome / revenue : null;
+    const opSafetyMargin = (grossMargin && opMargin) ? opMargin / grossMargin : null;
+    const netMargin     = (netIncome && revenue) ? netIncome / revenue : null;
+    const equity        = getLatest(balance, 'Equity');
+    const roe           = (netIncome && equity) ? netIncome / equity : null;
+
+    // D: 財務結構
+    const totalLiab  = getLatest(balance, 'Liabilities');
+    const debtRatio  = (totalLiab && totalAssets) ? totalLiab / totalAssets : null;
+    const ppe        = getLatest(balance, 'PropertyPlantAndEquipmentNet');
+    const longTermFund = equity && ppe ? (equity / ppe) : null; // simplified
+
+    // E: 償債能力
+    const currentAssets = getLatest(balance, 'CurrentAssets');
+    const currentRatio  = (currentAssets && currentLiab) ? currentAssets / currentLiab : null;
+    const inventory     = getLatest(balance, 'Inventories') || 0;
+    const quickRatio    = (currentAssets && currentLiab) ? (currentAssets - inventory) / currentLiab : null;
+
+    // ── Build evaluation ──────────────────────────────────────────
+    const indicators = {
+      A: [
+        { name: '現金流量比率', value: cashFlowRatio !== null ? pct(cashFlowRatio) : '—', pass: cashFlowRatio !== null ? cashFlowRatio > 1 : null },
+        { name: '現金再投資比率', value: cashReinvestRatio !== null ? pct(cashReinvestRatio) : '—', pass: cashReinvestRatio !== null ? cashReinvestRatio > 0.1 : null },
+        { name: '現金佔總資產比率', value: cashToAssets !== null ? pct(cashToAssets) : '—', pass: cashToAssets !== null ? cashToAssets >= 0.1 && cashToAssets <= 0.25 : null },
+      ],
+      B: [
+        { name: '總資產週轉率', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? assetTurnover > 1 : null },
+      ],
+      C: [
+        { name: '毛利率', value: pct(grossMargin), pass: grossMargin !== null ? grossMargin > 0.1 : null },
+        { name: '營業利益率', value: pct(opMargin), pass: opMargin !== null ? opMargin > 0.05 : null },
+        { name: '經營安全邊際', value: pct(opSafetyMargin), pass: opSafetyMargin !== null ? opSafetyMargin > 0.6 : null },
+        { name: '淨利率', value: pct(netMargin), pass: netMargin !== null ? netMargin > 0.02 : null },
+        { name: 'ROE 股東報酬率', value: pct(roe), pass: roe !== null ? roe > 0.2 : null },
+      ],
+      D: [
+        { name: '負債佔資產比率', value: pct(debtRatio), pass: debtRatio !== null ? debtRatio < 0.5 : null },
+      ],
+      E: [
+        { name: '流動比率', value: currentRatio !== null ? pct(currentRatio) : '—', pass: currentRatio !== null ? currentRatio > 2.5 : null },
+        { name: '速動比率', value: quickRatio !== null ? pct(quickRatio) : '—', pass: quickRatio !== null ? quickRatio > 1.5 : null },
+      ],
+    };
+
+    // Raw data for debug view
+    const rawData = {
+      '現金流量表筆數': cashflow.length,
+      '損益表筆數': income.length,
+      '資產負債表筆數': balance.length,
+      '營業現金流(近4季)': ocf,
+      '流動負債': currentLiab,
+      '總資產': totalAssets,
+      '現金': cash,
+      '營收(近4季)': revenue,
+      '毛利(近4季)': grossProfit,
+      '營業利益(近4季)': operatingIncome,
+      '淨利(近4季)': netIncome,
+      '股東權益': equity,
+      '流動資產': currentAssets,
+      '存貨': inventory,
+    };
+
+    renderResult(stockId, stockName, latestDate, indicators, rawData);
+  } catch(err) {
+    document.getElementById('loading').classList.remove('show');
+    const box = document.getElementById('errorBox');
+    box.textContent = `⚠ 無法取得資料：${err.message}。請確認股票代號是否正確，或稍後再試。`;
+    box.classList.add('show');
+  }
+}
+
+function renderResult(code, name, date, indicators, rawData) {
+  document.getElementById('loading').classList.remove('show');
+
+  // Calculate scores
+  const catScores = {};
+  Object.entries(indicators).forEach(([cat, items]) => {
+    const scoreable = items.filter(i => i.pass !== null);
+    catScores[cat] = scoreable.length ? scoreable.filter(i => i.pass).length / scoreable.length : 0.5;
+  });
+
+  const avgScore = Object.values(catScores).reduce((a,b) => a+b, 0) / Object.keys(catScores).length;
+  const totalScore = Math.round(avgScore * 100);
+
+  let verdict, verdictClass;
+  if (totalScore >= 75) { verdict = '推薦研究'; verdictClass = 'good'; }
+  else if (totalScore >= 55) { verdict = '審慎觀察'; verdictClass = 'mid'; }
+  else { verdict = '暫不推薦'; verdictClass = 'bad'; }
+
+  const scoreColor = totalScore >= 75 ? '#4ade80' : totalScore >= 55 ? '#c9a84c' : '#ff4d6d';
+
+  // Build verdict text
+  const passedCats = Object.entries(catScores).filter(([,s]) => s >= 0.8).map(([c]) => CATEGORY_NAMES[c]);
+  const failedCats = Object.entries(catScores).filter(([,s]) => s < 0.5).map(([c]) => CATEGORY_NAMES[c]);
+  let verdictText = `根據 FinMind 最新財報資料分析，${name}（${code}）整體健診分數為 ${totalScore} 分。`;
+  if (passedCats.length) verdictText += `在${passedCats.join('、')}面向表現優異。`;
+  if (failedCats.length) verdictText += `${failedCats.join('、')}面向需要關注。`;
+  verdictText += `投資前建議對照同產業標準與近三年趨勢，本報告僅供參考。`;
+
+  const indicatorsHTML = Object.entries(indicators).map(([cat, items]) => {
+    const scoreable = items.filter(i => i.pass !== null);
+    const passed = scoreable.filter(i => i.pass).length;
+    const total = scoreable.length;
+    const ratio = total ? passed / total : 0.5;
+    const catClass = ratio >= 0.8 ? 'pass' : ratio >= 0.5 ? 'partial' : 'fail';
+
+    const rows = items.map(i => `
+      <div class="indicator-row">
+        <span class="indicator-name">${i.name}</span>
+        <div style="display:flex;align-items:center;">
+          <span class="indicator-value">${i.value}</span>
+          <div class="status-dot ${i.pass === null ? 'neutral' : i.pass ? 'pass' : 'fail'}"></div>
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <div class="category ${catClass}">
+        <div class="category-header">
+          <span class="category-name">${CATEGORY_NAMES[cat]}</span>
+          <span class="category-score">${total > 0 ? passed + '/' + total + ' 通過' : '資料不足'}</span>
+        </div>
+        ${rows}
+      </div>
+    `;
+  }).join('');
+
+  const rawRows = Object.entries(rawData).map(([k,v]) =>
+    `${k.padEnd(20)} : ${v !== null && v !== undefined ? Number(v).toLocaleString() : '—'}`
+  ).join('\n');
+
+  document.getElementById('result').innerHTML = `
+    <div class="stock-header">
+      <div>
+        <div class="stock-name">${code}</div>
+        <div class="stock-title">${name}</div>
+        <div class="stock-period">資料截至 ${date} · FinMind 財報資料</div>
+      </div>
+      <div class="verdict-badge ${verdictClass}">${verdict}</div>
+    </div>
+
+    <div class="score-section">
+      <div class="score-ring-wrap">
+        <canvas id="ringChart" width="180" height="180"></canvas>
+        <div class="score-center">
+          <span class="score-num" style="color:${scoreColor}">${totalScore}</span>
+          <span class="score-label">健診分</span>
+        </div>
+      </div>
+      <div class="radar-wrap">
+        <canvas id="radarChart"></canvas>
+      </div>
+    </div>
+
+    <div class="indicators">${indicatorsHTML}</div>
+
+    <div class="verdict-text">
+      <h3>健診結論</h3>
+      <p>${verdictText}</p>
+    </div>
+
+    <div class="raw-data">
+      <button class="raw-toggle" onclick="toggleRaw()">▶ 查看原始 API 數據</button>
+      <pre class="raw-content" id="rawContent">${rawRows}</pre>
+    </div>
+  `;
+
+  document.getElementById('result').classList.add('show');
+
+  // Ring
+  if (ringChart) ringChart.destroy();
+  ringChart = new Chart(document.getElementById('ringChart').getContext('2d'), {
+    type: 'doughnut',
+    data: { datasets: [{ data: [totalScore, 100-totalScore], backgroundColor: [scoreColor, 'rgba(255,255,255,0.05)'], borderWidth: 0, cutout: '78%' }] },
+    options: { responsive: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 800 } }
+  });
+
+  // Radar
+  if (radarChart) radarChart.destroy();
+  radarChart = new Chart(document.getElementById('radarChart').getContext('2d'), {
+    type: 'radar',
+    data: {
+      labels: Object.values(CATEGORY_NAMES),
+      datasets: [{ data: Object.values(catScores).map(s => s * 100), backgroundColor: 'rgba(201,168,76,0.15)', borderColor: '#c9a84c', borderWidth: 2, pointBackgroundColor: '#c9a84c', pointRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { r: { min: 0, max: 100, ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.08)' }, angleLines: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#6b7a99', font: { family: 'Noto Serif TC', size: 12 } } } },
+      plugins: { legend: { display: false } }, animation: { duration: 800 }
+    }
+  });
+}
+
+function toggleRaw() {
+  const el = document.getElementById('rawContent');
+  const btn = document.querySelector('.raw-toggle');
+  el.classList.toggle('show');
+  btn.textContent = el.classList.contains('show') ? '▼ 隱藏原始 API 數據' : '▶ 查看原始 API 數據';
+}
+
+function quickSearch(code) {
+  document.getElementById('stockInput').value = code;
+  analyze();
+}
+
+document.getElementById('stockInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') analyze();
+});
+</script>
+</body>
+</html>
