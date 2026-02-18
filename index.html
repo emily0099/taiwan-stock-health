@@ -253,7 +253,7 @@
 </div>
 
 <script>
-const FINMIND_URL = 'https://api.finmindtrade.com/api/v4/data';
+const FINMIND_URL = 'https://stock-api-zeta-nine.vercel.app/api/finmind';
 
 const CATEGORY_NAMES = { A: '現金流量', B: '經營能力', C: '獲利能力', D: '財務結構', E: '償債能力' };
 
@@ -265,17 +265,11 @@ function getToken() {
 }
 
 async function fetchFinMind(dataset, stockId) {
-  const token = getToken();
-  const params = new URLSearchParams({
-    dataset,
-    data_id: stockId,
-    start_date: '2022-01-01',
-  });
+  const params = new URLSearchParams({ dataset });
+  if (stockId) params.append('data_id', stockId);
+  params.append('start_date', '2022-01-01');
 
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(`${FINMIND_URL}?${params}`, { headers });
+  const res = await fetch(`${FINMIND_URL}?${params}`);
   if (!res.ok) throw new Error(`API 錯誤: ${res.status}`);
   const json = await res.json();
   if (json.status !== 200) throw new Error(json.msg || 'API 回傳錯誤');
@@ -329,7 +323,7 @@ async function analyze() {
     // Get company name via stock info endpoint
     let stockName = stockId;
     try {
-      const infoRes = await fetch(`${FINMIND_URL}?dataset=TaiwanStockInfo`);
+      const infoRes = await fetch(`https://stock-api-zeta-nine.vercel.app/api/finmind?dataset=TaiwanStockInfo`);
       const infoJson = await infoRes.json();
       const info = infoJson.data?.find(d => d.stock_id === stockId);
       if (info) stockName = info.company_name || stockId;
