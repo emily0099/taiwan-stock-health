@@ -341,31 +341,37 @@ async function analyze() {
 
     // ── Calculate indicators ──────────────────────────────────────
 
-    // 基礎數據
-    const ocf           = getLatestYear(cashflow, 'CashFlowsFromOperatingActivities');
+    // ── 正確欄位名稱（對照 FinMind 官方文件）────────────────────────
+    // 現金流量表 TaiwanStockCashFlowsStatement
+    const ocf           = getLatestYear(cashflow, 'OperatingActivities');
     const cashDividend  = getLatestYear(cashflow, 'CashDividendsPaid') || 0;
-    const currentLiab   = getLatest(balance, 'CurrentLiabilities');
-    const totalAssets   = getLatest(balance, 'Assets');
-    // 用兩期平均計算總資產週轉率（B1公式）
-    const balanceSorted = balance.filter(d => d.type === 'Assets').sort((a,b) => b.date.localeCompare(a.date));
-    const assetsBegin   = balanceSorted[1]?.value ?? totalAssets;
-    const assetsAvg     = (totalAssets + assetsBegin) / 2;
+
+    // 資產負債表 TaiwanStockBalanceSheet
+    const totalAssets   = getLatest(balance, 'TotalAssets');
+    const currentLiab   = getLatest(balance, 'TotalCurrentLiabilities');
+    const currentAssets = getLatest(balance, 'TotalCurrentAssets');
     const cash          = getLatest(balance, 'CashAndCashEquivalents');
-    const netIncome     = getLatestYear(income, 'NetIncome');
+    const equity        = getLatest(balance, 'TotalEquity');
+    const totalLiab     = getLatest(balance, 'TotalLiabilities');
+    const inventory     = getLatest(balance, 'Inventories') || 0;
+    const prepaid       = getLatest(balance, 'PrepaidExpenses') || 0;
+    const ppe           = getLatest(balance, 'PropertyAndPlantAndEquipment');
+    const nonCurrentLiab = getLatest(balance, 'TotalNonCurrentLiabilities') || 0;
+    const receivables   = getLatest(balance, 'AccountsReceivable');
+    const longTermInv   = getLatest(balance, 'LongTermInvestment') || 0;
+    const otherAssets   = getLatest(balance, 'OtherAssets') || 0;
+
+    // 用兩期平均計算總資產週轉率（B1公式）
+    const balanceSorted = balance.filter(d => d.type === 'TotalAssets').sort((a,b) => b.date.localeCompare(a.date));
+    const assetsBegin   = balanceSorted[1]?.value ?? totalAssets;
+    const assetsAvg     = ((totalAssets || 0) + (assetsBegin || 0)) / 2;
+
+    // 綜合損益表 TaiwanStockFinancialStatements
+    const netIncome     = getLatestYear(income, 'IncomeAfterTaxes');
     const revenue       = getLatestYear(income, 'Revenue');
     const grossProfit   = getLatestYear(income, 'GrossProfit');
     const operatingIncome = getLatestYear(income, 'OperatingIncome');
-    const equity        = getLatest(balance, 'Equity');
-    const totalLiab     = getLatest(balance, 'Liabilities');
-    const currentAssets = getLatest(balance, 'CurrentAssets');
-    const inventory     = getLatest(balance, 'Inventories') || 0;
-    const prepaid       = getLatest(balance, 'PrepaidExpenses') || 0;
-    const ppe           = getLatest(balance, 'PropertyPlantAndEquipmentNet');
-    const nonCurrentLiab = getLatest(balance, 'NoncurrentLiabilities') || 0;
-    const receivables   = getLatest(balance, 'AccountsReceivableNet');
-    // 固定資產毛額 + 長期投資 + 其他資產 + 營運資金（A1-3分母）
-    const longTermInv   = getLatest(balance, 'LongTermInvestments') || 0;
-    const otherAssets   = getLatest(balance, 'OtherAssets') || 0;
+
     const workingCapital = currentAssets && currentLiab ? currentAssets - currentLiab : 0;
     const reinvestDenom = (ppe || 0) + longTermInv + otherAssets + workingCapital;
 
@@ -444,23 +450,20 @@ async function analyze() {
       '現金流量表筆數': cashflow.length,
       '損益表筆數': income.length,
       '資產負債表筆數': balance.length,
-      '營業現金流(近4季)': ocf,
-      '現金股利': cashDividend,
-      '流動負債': currentLiab,
-      '總資產': totalAssets,
-      '平均總資產': assetsAvg,
-      '現金': cash,
-      '應收帳款': receivables,
-      '存貨': inventory,
-      '預付費用': prepaid,
-      '營收(近4季)': revenue,
-      '毛利(近4季)': grossProfit,
-      '營業利益(近4季)': operatingIncome,
-      '淨利(近4季)': netIncome,
-      '股東權益': equity,
-      '非流動負債': nonCurrentLiab,
-      '廠房設備(淨額)': ppe,
-      '流動資產': currentAssets,
+      '營業現金流(OperatingActivities)': ocf,
+      '流動負債(TotalCurrentLiabilities)': currentLiab,
+      '總資產(TotalAssets)': totalAssets,
+      '現金(CashAndCashEquivalents)': cash,
+      '應收帳款(AccountsReceivable)': receivables,
+      '存貨(Inventories)': inventory,
+      '股東權益(TotalEquity)': equity,
+      '非流動負債(TotalNonCurrentLiabilities)': nonCurrentLiab,
+      '廠房設備(PropertyAndPlantAndEquipment)': ppe,
+      '流動資產(TotalCurrentAssets)': currentAssets,
+      '營收(Revenue)': revenue,
+      '毛利(GrossProfit)': grossProfit,
+      '營業利益(OperatingIncome)': operatingIncome,
+      '淨利(IncomeAfterTaxes)': netIncome,
     };
 
     renderResult(stockId, stockName, latestDate, indicators, rawData);
