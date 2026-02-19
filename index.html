@@ -71,6 +71,27 @@
   .token-hint a { color: var(--gold); }
 
   .search-box { display: flex; gap: 12px; margin-bottom: 16px; }
+  .date-range {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .date-range label { font-size: 12px; color: var(--gold); letter-spacing: 1px; white-space: nowrap; }
+  .date-range input[type="date"] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+  }
+  .date-range input[type="date"]:focus { border-color: var(--gold); }
+  .date-range .date-sep { color: var(--muted); font-size: 12px; }
   .search-box input {
     flex: 1;
     background: var(--surface);
@@ -234,6 +255,13 @@
     <button onclick="analyze()">健診 →</button>
   </div>
 
+  <div class="date-range">
+    <label>資料區間</label>
+    <input type="date" id="startDate" value="2022-01-01" />
+    <span class="date-sep">→</span>
+    <input type="date" id="endDate" />
+  </div>
+
   <div class="samples">
     <span style="font-size:11px;color:var(--muted);align-self:center;font-family:'Space Mono',monospace;">試試看：</span>
     <button class="sample-chip" onclick="quickSearch('2330')">2330 台積電</button>
@@ -264,10 +292,19 @@ function getToken() {
   return document.getElementById('tokenInput').value.trim();
 }
 
+function getStartDate() {
+  return document.getElementById('startDate').value || '2022-01-01';
+}
+function getEndDate() {
+  return document.getElementById('endDate').value || '';
+}
+
 async function fetchFinMind(dataset, stockId) {
   const params = new URLSearchParams({ dataset });
   if (stockId) params.append('data_id', stockId);
-  params.append('start_date', '2022-01-01');
+  params.append('start_date', getStartDate());
+  const endDate = getEndDate();
+  if (endDate) params.append('end_date', endDate);
 
   const res = await fetch(`${FINMIND_URL}?${params}`);
   if (!res.ok) throw new Error(`API 錯誤: ${res.status}`);
@@ -283,10 +320,10 @@ function getLatest(data, type) {
 }
 
 function getLatestYear(data, type) {
-  // Sum last 4 quarters for annual value
+  // 取最新一筆（現金流量表和損益表為累計值，最新一筆最即時）
   const filtered = data.filter(d => d.type === type).sort((a, b) => b.date.localeCompare(a.date));
   if (!filtered.length) return null;
-  return filtered.slice(0, 4).reduce((s, d) => s + (d.value || 0), 0);
+  return filtered[0].value ?? null;
 }
 
 function safe(val, digits = 1) {
