@@ -342,18 +342,18 @@ async function analyze() {
 
     // 資產負債表 TaiwanStockBalanceSheet
     const totalAssets   = getLatest(balance, 'TotalAssets');
-    const currentLiab   = getLatest(balance, 'TotalCurrentLiabilities');
-    const currentAssets = getLatest(balance, 'TotalCurrentAssets');
+    const currentLiab   = getLatest(balance, 'CurrentLiabilities');
+    const currentAssets = getLatest(balance, 'CurrentAssets');
     const cash          = getLatest(balance, 'CashAndCashEquivalents');
-    const equity        = getLatest(balance, 'TotalEquity');
-    const totalLiab     = getLatest(balance, 'TotalLiabilities');
+    const equity        = getLatest(balance, 'Equity');
+    const totalLiab     = getLatest(balance, 'Liabilities');
     const inventory     = getLatest(balance, 'Inventories') || 0;
-    const prepaid       = getLatest(balance, 'PrepaidExpenses') || 0;
-    const ppe           = getLatest(balance, 'PropertyAndPlantAndEquipment');
-    const nonCurrentLiab = getLatest(balance, 'TotalNonCurrentLiabilities') || 0;
-    const receivables   = getLatest(balance, 'AccountsReceivable');
-    const longTermInv   = getLatest(balance, 'LongTermInvestment') || 0;
-    const otherAssets   = getLatest(balance, 'OtherAssets') || 0;
+    const prepaid       = 0; // FinMind 無此欄位，設為 0
+    const ppe           = getLatest(balance, 'PropertyPlantAndEquipment');
+    const nonCurrentLiab = getLatest(balance, 'NoncurrentLiabilities') || 0;
+    const receivables   = getLatest(balance, 'AccountsReceivableNet');
+    const longTermInv   = getLatest(balance, 'InvestmentAccountedForUsingEquityMethod') || 0;
+    const otherAssets   = getLatest(balance, 'OtherNoncurrentAssets') || 0;
 
     // 用兩期平均計算總資產週轉率（B1公式）
     const balanceSorted = balance.filter(d => d.type === 'TotalAssets').sort((a,b) => b.date.localeCompare(a.date));
@@ -445,15 +445,16 @@ async function analyze() {
       '損益表筆數': income.length,
       '資產負債表筆數': balance.length,
       '營業現金流(OperatingActivities)': ocf,
-      '流動負債(TotalCurrentLiabilities)': currentLiab,
+      '流動負債(CurrentLiabilities)': currentLiab,
+      '流動資產(CurrentAssets)': currentAssets,
       '總資產(TotalAssets)': totalAssets,
       '現金(CashAndCashEquivalents)': cash,
-      '應收帳款(AccountsReceivable)': receivables,
+      '應收帳款(AccountsReceivableNet)': receivables,
       '存貨(Inventories)': inventory,
-      '股東權益(TotalEquity)': equity,
-      '非流動負債(TotalNonCurrentLiabilities)': nonCurrentLiab,
-      '廠房設備(PropertyAndPlantAndEquipment)': ppe,
-      '流動資產(TotalCurrentAssets)': currentAssets,
+      '股東權益(Equity)': equity,
+      '總負債(Liabilities)': totalLiab,
+      '非流動負債(NoncurrentLiabilities)': nonCurrentLiab,
+      '廠房設備(PropertyPlantAndEquipment)': ppe,
       '營收(Revenue)': revenue,
       '毛利(GrossProfit)': grossProfit,
       '營業利益(OperatingIncome)': operatingIncome,
