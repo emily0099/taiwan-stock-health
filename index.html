@@ -337,7 +337,7 @@ async function analyze() {
 
     // ── 正確欄位名稱（對照 FinMind 官方文件）────────────────────────
     // 現金流量表 TaiwanStockCashFlowsStatement
-    const ocf           = getLatestYear(cashflow, 'OperatingActivities');
+    const ocf           = getLatestYear(cashflow, 'CashFlowsFromOperatingActivities');
     const cashDividend  = getLatestYear(cashflow, 'CashDividendsPaid') || 0;
 
     // 資產負債表 TaiwanStockBalanceSheet
