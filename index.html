@@ -216,6 +216,7 @@
   .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-left: 8px; }
   .status-dot.pass { background: var(--green); box-shadow: 0 0 6px var(--green); }
   .status-dot.fail { background: var(--red); box-shadow: 0 0 6px var(--red); }
+  .status-dot.warn { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
   .status-dot.neutral { background: var(--muted); }
 
   .verdict-text { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 4px; padding: 24px 28px; }
@@ -431,6 +432,8 @@ async function analyze() {
     const opSafetyMargin = (grossMargin && opMargin) ? opMargin / grossMargin : null;
     const netMargin      = (netIncome && revenue) ? netIncome / revenue : null;
     const roe            = (netIncome && equity) ? netIncome / equity : null;
+    // 營業費用率 = (毛利 - 營業利益) ÷ 營收
+    const opExpenseRatio = (grossProfit !== null && operatingIncome !== null && revenue) ? (grossProfit - operatingIncome) / revenue : null;
 
     // D: 財務結構
     // D1: 負債總額 ÷ 資產總額
@@ -466,14 +469,15 @@ async function analyze() {
       C: [
         { name: '毛利率 (C1)', value: pct(grossMargin), pass: null, formula: '毛利 ÷ 營收，與同產業比較' },
         { name: '營業利益率 (C2)', value: pct(opMargin), pass: null, formula: '營業利益 ÷ 營收，與同產業比較' },
+        { name: '營業費用率', value: pct(opExpenseRatio), pass: null, formula: '(毛利－營業利益) ÷ 營收，顯示數值' },
         { name: '經營安全邊際 (C3)', value: pct(opSafetyMargin), pass: opSafetyMargin !== null ? opSafetyMargin > 0.6 : null, formula: '營業利益率 ÷ 毛利率 > 60%' },
         { name: '淨利率 (C4)', value: pct(netMargin), pass: netMargin !== null ? netMargin > 0.02 : null, formula: '淨利 ÷ 營收 > 2%' },
         { name: 'EPS 基本每股盈餘 (C5)', value: eps !== null ? fmt(eps) + ' 元' : '—', pass: null, formula: '顯示數值，自行判斷趨勢' },
-        { name: 'ROE 股東報酬率 (C6)', value: pct(roe), pass: roe !== null ? roe > 0.2 : null, formula: '淨利 ÷ 股東權益 > 20%' },
+        { name: 'ROE 股東報酬率 (C6)', value: pct(roe), pass: roe !== null ? roe > 0.2 : null, warn: roe !== null && roe < 0.07, formula: '淨利 ÷ 股東權益 > 20%；< 7% 不值得投資' },
       ],
       D: [
-        { name: '負債佔資產比率 (D1)', value: pct(debtRatio), pass: null, formula: '負債總額 ÷ 資產總額，顯示數值' },
-        { name: '長期資金佔廠設比 (D2)', value: longTermFundRatio !== null ? pct(longTermFundRatio) : '—', pass: null, formula: '(股東權益+非流動負債) ÷ 廠房設備，顯示數值' },
+        { name: '負債佔資產比率 (D1)', value: pct(debtRatio), pass: debtRatio !== null ? debtRatio < 0.5 : null, formula: '負債總額 ÷ 資產總額 < 50%' },
+        { name: '長期資金佔不動產廠房設備比 (D2)', value: longTermFundRatio !== null ? pct(longTermFundRatio) : '—', pass: longTermFundRatio !== null ? longTermFundRatio > 1 : null, formula: '(股東權益+非流動負債) ÷ 廠房設備 > 100%' },
       ],
       E: [
         { name: '流動比率 (E1)', value: currentRatio !== null ? pct(currentRatio) : '—', pass: currentRatio !== null ? currentRatio > 2.5 : null, formula: '流動資產 ÷ 流動負債 > 250%' },
@@ -557,6 +561,8 @@ function renderResult(code, name, date, indicators, rawData) {
           <span class="indicator-value">${i.value}</span>
           ${i.pass === null
             ? `<span style="font-size:9px;color:var(--muted);border:1px solid var(--border);padding:1px 5px;border-radius:2px;letter-spacing:1px">參考</span>`
+            : i.warn
+            ? `<div class="status-dot warn"></div>`
             : `<div class="status-dot ${i.pass ? 'pass' : 'fail'}"></div>`
           }
         </div>
