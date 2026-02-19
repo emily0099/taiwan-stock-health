@@ -302,13 +302,7 @@ function getEndDate() {
 async function fetchFinMind(dataset, stockId) {
   const params = new URLSearchParams({ dataset });
   if (stockId) params.append('data_id', stockId);
-
-  // 往前多抓一年，以便計算期間差值（取得期間開始前的基準值）
-  const startDate = getStartDate();
-  const baselineDate = new Date(startDate);
-  baselineDate.setFullYear(baselineDate.getFullYear() - 1);
-  params.append('start_date', baselineDate.toISOString().split('T')[0]);
-
+  params.append('start_date', getStartDate());
   const endDate = getEndDate();
   if (endDate) params.append('end_date', endDate);
 
@@ -326,23 +320,15 @@ function getLatest(data, type) {
 }
 
 function getLatestYear(data, type) {
-  // 損益表和現金流量表是累計值
-  // 計算方式：期間最後一筆 - 期間開始前最近一筆 = 該期間真正產生的金額
-  const startDate = getStartDate();
-  const filtered = data.filter(d => d.type === type).sort((a, b) => b.date.localeCompare(a.date));
+  // 損益表和現金流量表每年 Q1 重新從零累計
+  // 所以直接取查詢期間內最新一筆，就是該期間（年初至今）的累計金額
+  const endDate = getEndDate();
+  const filtered = data
+    .filter(d => d.type === type)
+    .filter(d => !endDate || d.date <= endDate)
+    .sort((a, b) => b.date.localeCompare(a.date));
   if (!filtered.length) return null;
-
-  // 期間內最新一筆（end）
-  const endVal = filtered[0].value;
-
-  // 期間開始前最近一筆（baseline）：找 date < startDate 的最新那筆
-  const baseline = filtered.find(d => d.date < startDate);
-  if (!baseline) {
-    // 沒有基準點，直接回傳最新值（可能是從頭開始的累計）
-    return endVal ?? null;
-  }
-
-  return (endVal ?? 0) - (baseline.value ?? 0);
+  return filtered[0].value ?? null;
 }
 
 function safe(val, digits = 1) {
