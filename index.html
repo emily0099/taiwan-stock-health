@@ -258,7 +258,7 @@
 
   <div class="date-range">
     <label>資料區間</label>
-    <input type="date" id="startDate" value="2022-01-01" />
+    <input type="date" id="startDate" />
     <span class="date-sep">→</span>
     <input type="date" id="endDate" />
   </div>
@@ -292,6 +292,35 @@ let ringChart = null;
 function getToken() {
   return document.getElementById('tokenInput').value.trim();
 }
+
+function getLatestQuarterStart() {
+  // 台灣財報發布時間：Q1(3/31) 約5月底公布、Q2(6/30) 約8月底、Q3(9/30) 約11月底、Q4(12/31) 約3月底
+  // 根據今天日期推算最近一期已公布的財報季初
+  const today = new Date();
+  const m = today.getMonth() + 1; // 1-12
+  const y = today.getFullYear();
+  let qYear, qMonth;
+  if (m >= 4 && m <= 5) {
+    // 4~5月：Q4 剛公布，最新是去年 Q4 → 季初 10/1
+    qYear = y - 1; qMonth = 10;
+  } else if (m >= 6 && m <= 8) {
+    // 6~8月：Q1 公布，最新是今年 Q1 → 季初 1/1
+    qYear = y; qMonth = 1;
+  } else if (m >= 9 && m <= 11) {
+    // 9~11月：Q2 公布，最新是今年 Q2 → 季初 4/1
+    qYear = y; qMonth = 4;
+  } else {
+    // 12月 或 1~3月：Q3 公布，最新是今年（或去年）Q3 → 季初 7/1
+    qYear = m === 12 ? y : y - 1;
+    qMonth = 7;
+  }
+  return `${qYear}-${String(qMonth).padStart(2, '0')}-01`;
+}
+
+// 頁面載入時自動設定起始日
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('startDate').value = getLatestQuarterStart();
+});
 
 function getStartDate() {
   return document.getElementById('startDate').value || '2022-01-01';
