@@ -329,6 +329,18 @@ function getEndDate() {
   return document.getElementById('endDate').value || '';
 }
 
+function getPeriodDays() {
+  // 根據查詢區間計算天數（以季為單位，每季 90 天）
+  const start = new Date(getStartDate());
+  const endStr = getEndDate();
+  const end = endStr ? new Date(endStr) : new Date();
+
+  // 計算相差幾個月，換算成季數，每季 90 天
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  const quarters = Math.max(1, Math.round(months / 3));
+  return quarters * 90;
+}
+
 async function fetchFinMind(dataset, stockId) {
   const params = new URLSearchParams({ dataset });
   if (stockId) params.append('data_id', stockId);
@@ -449,11 +461,12 @@ async function analyze() {
     const cashReinvestRatio = (ocf && reinvestDenom) ? (ocf - Math.abs(cashDividend)) / reinvestDenom : null;
     // A2: 現金 ÷ 總資產
     const cashToAssets = (cash && totalAssets) ? cash / totalAssets : null;
-    // A3: 365 ÷ (營收 ÷ 應收帳款) = 應收帳款 × 365 ÷ 營收
-    const receivableDays = (receivables && revenue) ? receivables * 365 / revenue : null;
+    const periodDays = getPeriodDays();
+    // A3: 應收帳款 × 期間天數 ÷ 營收
+    const receivableDays = (receivables && revenue) ? receivables * periodDays / revenue : null;
 
     // B: 經營能力
-    // B1: 營業利益 ÷ 平均總資產（公式寫的是這個）
+    // B1: 營業利益 ÷ 平均總資產
     const assetTurnover = (operatingIncome && assetsAvg) ? operatingIncome / assetsAvg : null;
 
     // C: 獲利能力
@@ -477,8 +490,8 @@ async function analyze() {
     // E2: (流動資產 - 存貨 - 預付費用) ÷ 流動負債
     const quickRatio     = (currentAssets && currentLiab) ? (currentAssets - inventory - prepaid) / currentLiab : null;
 
-    // B2: 平均銷貨日數 = 存貨 × 365 ÷ 銷貨成本（存貨週轉率倒數）
-    const inventoryDays = (inventory && cogs) ? inventory * 365 / Math.abs(cogs) : null;
+    // B2: 平均銷貨日數 = 存貨 × 期間天數 ÷ 銷貨成本
+    const inventoryDays = (inventory && cogs) ? inventory * periodDays / Math.abs(cogs) : null;
     // C5: EPS
     const eps = getLatest(income, 'EPS') ?? getLatest(income, 'BasicEarningsPerShare') ?? null;
 
@@ -489,12 +502,12 @@ async function analyze() {
         { name: '現金流量比率 (A1)', value: cashFlowRatio !== null ? pct(cashFlowRatio) : '—', pass: cashFlowRatio !== null ? cashFlowRatio > 1 : null, formula: '營業現金流 ÷ 流動負債 > 100%' },
         { name: '現金再投資比率 (A1-3)', value: cashReinvestRatio !== null ? pct(cashReinvestRatio) : '—', pass: cashReinvestRatio !== null ? cashReinvestRatio > 0.1 : null, formula: '(營業現金流－股利) ÷ 長期資產+營運資金 > 10%' },
         { name: '現金佔總資產 (A2)', value: cashToAssets !== null ? pct(cashToAssets) : '—', pass: cashToAssets !== null ? cashToAssets >= 0.1 && cashToAssets <= 0.25 : null, formula: '現金 ÷ 總資產，10%~25%' },
-        { name: '平均收現天數 (A3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: '應收帳款 × 365 ÷ 營收 < 90天' },
+        { name: '平均收現天數 (A3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: `應收帳款 × ${periodDays}天 ÷ 營收 < 90天` },
       ],
       B: [
         { name: '總資產週轉率 (B1)', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? assetTurnover > 1 : null, formula: '營業利益 ÷ 平均總資產 > 1' },
-        { name: '平均銷貨日數 (B2)', value: inventoryDays !== null ? fmt(inventoryDays, 0) + '天' : '—', pass: null, formula: '存貨 × 365 ÷ 銷貨成本，與同產業比較' },
-        { name: '平均收現日數 (B3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: '應收帳款 × 365 ÷ 營收 < 90天' },
+        { name: '平均銷貨日數 (B2)', value: inventoryDays !== null ? fmt(inventoryDays, 0) + '天' : '—', pass: null, formula: `存貨 × ${periodDays}天 ÷ 銷貨成本，與同產業比較` },
+        { name: '平均收現日數 (B3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: `應收帳款 × ${periodDays}天 ÷ 營收 < 90天` },
       ],
       C: [
         { name: '毛利率 (C1)', value: pct(grossMargin), pass: null, formula: '毛利 ÷ 營收，與同產業比較' },
