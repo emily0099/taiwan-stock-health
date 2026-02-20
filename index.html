@@ -397,9 +397,32 @@ async function fetchFinMind(dataset, stockId) {
   return json.data;
 }
 
+async function fetchFinMindWithPrior(dataset, stockId) {
+  // 資產負債表：往前多抓一季，以便取得期初值（計算平均應收帳款、平均存貨等）
+  const startDate = new Date(getStartDate());
+  startDate.setMonth(startDate.getMonth() - 3);
+  const priorStart = startDate.toISOString().split('T')[0];
+
+  const params = new URLSearchParams({ dataset });
+  if (stockId) params.append('data_id', stockId);
+  params.append('start_date', priorStart);
+  const endDate = getEndDate();
+  if (endDate) params.append('end_date', endDate);
+
+  const res = await fetch(`${FINMIND_URL}?${params}`);
+  if (!res.ok) throw new Error(`API 錯誤: ${res.status}`);
+  const json = await res.json();
+  if (json.status !== 200) throw new Error(json.msg || 'API 回傳錯誤');
+  return json.data;
+}
+
 function getLatest(data, type) {
-  // Filter by type and get most recent
-  const filtered = data.filter(d => d.type === type).sort((a, b) => b.date.localeCompare(a.date));
+  // Filter by type and get most recent within query period
+  const endDate = getEndDate();
+  const filtered = data
+    .filter(d => d.type === type)
+    .filter(d => !endDate || d.date <= endDate)
+    .sort((a, b) => b.date.localeCompare(a.date));
   return filtered[0]?.value ?? null;
 }
 
@@ -443,7 +466,7 @@ async function analyze() {
     const [cashflow, income, balance] = await Promise.all([
       fetchFinMind('TaiwanStockCashFlowsStatement', stockId),
       fetchFinMind('TaiwanStockFinancialStatements', stockId),
-      fetchFinMind('TaiwanStockBalanceSheet', stockId),
+      fetchFinMindWithPrior('TaiwanStockBalanceSheet', stockId),
     ]);
 
     // Get company name via stock info endpoint
@@ -482,21 +505,24 @@ async function analyze() {
     const otherAssets   = getLatest(balance, 'OtherNoncurrentAssets') || 0;
 
     // 平均應收帳款 = (期初應收帳款 + 期末應收帳款) ÷ 2
+    // 期末 = 查詢區間內最新一筆；期初 = startDate 之前最近一筆
+    const startDate = getStartDate();
     const receivablesSorted = balance.filter(d => d.type === 'AccountsReceivableNet').sort((a,b) => b.date.localeCompare(a.date));
-    const receivablesEnd   = receivablesSorted[0]?.value || 0;
-    const receivablesBegin = receivablesSorted[1]?.value || receivablesEnd;
+    const receivablesEnd   = receivablesSorted.find(d => !getEndDate() || d.date <= getEndDate())?.value || 0;
+    const receivablesBegin = receivablesSorted.find(d => d.date < startDate)?.value || receivablesEnd;
     const receivablesAvg   = (receivablesEnd + receivablesBegin) / 2;
 
     // 平均存貨 = (期初存貨 + 期末存貨) ÷ 2
     const inventorySorted = balance.filter(d => d.type === 'Inventories').sort((a,b) => b.date.localeCompare(a.date));
-    const inventoryEnd   = inventorySorted[0]?.value || 0;
-    const inventoryBegin = inventorySorted[1]?.value || inventoryEnd;
+    const inventoryEnd   = inventorySorted.find(d => !getEndDate() || d.date <= getEndDate())?.value || 0;
+    const inventoryBegin = inventorySorted.find(d => d.date < startDate)?.value || inventoryEnd;
     const inventoryAvg   = (inventoryEnd + inventoryBegin) / 2;
 
     // 用兩期平均計算總資產週轉率（B1公式）
     const balanceSorted = balance.filter(d => d.type === 'TotalAssets').sort((a,b) => b.date.localeCompare(a.date));
-    const assetsBegin   = balanceSorted[1]?.value ?? totalAssets;
-    const assetsAvg     = ((totalAssets || 0) + (assetsBegin || 0)) / 2;
+    const assetsEnd   = balanceSorted.find(d => !getEndDate() || d.date <= getEndDate())?.value ?? totalAssets;
+    const assetsBegin = balanceSorted.find(d => d.date < startDate)?.value ?? assetsEnd;
+    const assetsAvg   = ((assetsEnd || 0) + (assetsBegin || 0)) / 2;
 
     // 綜合損益表 TaiwanStockFinancialStatements
     const netIncome     = getLatestYear(income, 'IncomeAfterTaxes');
