@@ -516,7 +516,7 @@ async function analyze() {
         { name: '經營安全邊際 (C3)', value: pct(opSafetyMargin), pass: opSafetyMargin !== null ? opSafetyMargin > 0.6 : null, formula: '營業利益率 ÷ 毛利率 > 60%' },
         { name: '淨利率 (C4)', value: pct(netMargin), pass: netMargin !== null ? netMargin > 0.02 : null, formula: '淨利 ÷ 營收 > 2%' },
         { name: 'EPS 基本每股盈餘 (C5)', value: eps !== null ? fmt(eps) + ' 元' : '—', pass: null, formula: '顯示數值，自行判斷趨勢' },
-        { name: 'ROE 股東報酬率 (C6)', value: pct(roe), pass: roe !== null ? roe > 0.2 : null, warn: roe !== null && roe < 0.07, formula: '淨利 ÷ 股東權益 > 20%；< 7% 不值得投資' },
+        { name: 'ROE 股東報酬率 (C6)', value: pct(roe), pass: roe !== null ? roe >= 0.07 : null, warn: roe !== null && roe >= 0.07 && roe < 0.2, formula: '淨利 ÷ 股東權益 > 20%；< 7% 不值得投資' },
       ],
       D: [
         { name: '負債佔資產比率 (D1)', value: pct(debtRatio), pass: debtRatio !== null ? debtRatio < 0.5 : null, formula: '負債總額 ÷ 資產總額 < 50%' },
