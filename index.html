@@ -524,6 +524,12 @@ async function analyze() {
     const assetsBegin = balanceSorted.find(d => d.date < startDate)?.value ?? assetsEnd;
     const assetsAvg   = ((assetsEnd || 0) + (assetsBegin || 0)) / 2;
 
+    // 平均股東權益 = (期初股東權益 + 期末股東權益) ÷ 2
+    const equitySorted = balance.filter(d => d.type === 'Equity').sort((a,b) => b.date.localeCompare(a.date));
+    const equityEnd   = equitySorted.find(d => !getEndDate() || d.date <= getEndDate())?.value ?? equity;
+    const equityBegin = equitySorted.find(d => d.date < startDate)?.value ?? equityEnd;
+    const equityAvg   = ((equityEnd || 0) + (equityBegin || 0)) / 2;
+
     // 綜合損益表 TaiwanStockFinancialStatements
     const netIncome     = getLatestYear(income, 'IncomeAfterTaxes');
     const revenue       = getLatestYear(income, 'Revenue');
@@ -555,7 +561,7 @@ async function analyze() {
     const opMargin       = (operatingIncome && revenue) ? operatingIncome / revenue : null;
     const opSafetyMargin = (grossMargin && opMargin) ? opMargin / grossMargin : null;
     const netMargin      = (netIncome && revenue) ? netIncome / revenue : null;
-    const roe            = (netIncome && equity) ? netIncome / equity : null;
+    const roe            = (netIncome && equityAvg) ? netIncome / equityAvg : null;
     // 營業費用率 = (毛利 - 營業利益) ÷ 營收
     const opExpenseRatio = (grossProfit !== null && operatingIncome !== null && revenue) ? (grossProfit - operatingIncome) / revenue : null;
 
