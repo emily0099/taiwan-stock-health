@@ -537,6 +537,25 @@ async function analyze() {
     const operatingIncome = getLatestYear(income, 'OperatingIncome');
     const cogs          = getLatestYear(income, 'CostOfGoodsSold');
 
+    // ROE：各季淨利 ÷ 各季平均股東權益，再加總
+    // FinMind 損益表的淨利已是當季數字（非累計）
+    const incomeAllRows = income.filter(d => d.type === 'IncomeAfterTaxes').sort((a,b) => a.date.localeCompare(b.date));
+    const incomePeriod  = incomeAllRows.filter(d => d.date >= startDate && (!getEndDate() || d.date <= getEndDate()));
+    const equityAllRows = balance.filter(d => d.type === 'Equity').sort((a,b) => a.date.localeCompare(b.date));
+    let roe = null;
+    if (incomePeriod.length > 0) {
+      roe = incomePeriod.reduce((sum, row) => {
+        // 當季淨利（直接用，不需累計還原）
+        const quarterlyIncome = row.value;
+        // 當季平均股東權益 = (期初 + 期末) ÷ 2
+        const equityEnd   = equityAllRows.filter(d => d.date <= row.date).slice(-1)[0]?.value;
+        const equityStart = equityAllRows.filter(d => d.date < row.date).slice(-1)[0]?.value ?? equityEnd;
+        const quarterlyEquityAvg = equityEnd && equityStart ? (equityEnd + equityStart) / 2 : null;
+        const quarterlyRoe = (quarterlyIncome && quarterlyEquityAvg) ? quarterlyIncome / quarterlyEquityAvg : 0;
+        return sum + quarterlyRoe;
+      }, 0);
+    }
+
     const workingCapital = currentAssets && currentLiab ? currentAssets - currentLiab : 0;
     const reinvestDenom = (ppe || 0) + longTermInv + otherAssets + workingCapital;
 
@@ -561,7 +580,6 @@ async function analyze() {
     const opMargin       = (operatingIncome && revenue) ? operatingIncome / revenue : null;
     const opSafetyMargin = (grossMargin && opMargin) ? opMargin / grossMargin : null;
     const netMargin      = (netIncome && revenue) ? netIncome / revenue : null;
-    const roe            = (netIncome && equityAvg) ? netIncome / equityAvg : null;
     // 營業費用率 = (毛利 - 營業利益) ÷ 營收
     const opExpenseRatio = (grossProfit !== null && operatingIncome !== null && revenue) ? (grossProfit - operatingIncome) / revenue : null;
 
