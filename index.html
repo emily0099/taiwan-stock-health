@@ -505,7 +505,7 @@ async function analyze() {
         { name: '平均收現天數 (A3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: `應收帳款 × ${periodDays}天 ÷ 營收 < 90天` },
       ],
       B: [
-        { name: '總資產週轉率 (B1)', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? assetTurnover > 1 : null, formula: '營業利益 ÷ 平均總資產 > 1' },
+        { name: '總資產週轉率 (B1)', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? (assetTurnover > 1 || (cashToAssets !== null && cashToAssets > 0.25) || (receivableDays !== null && receivableDays < 15)) : null, formula: '營業利益 ÷ 平均總資產 > 1；或現金佔總資產>25%；或平均收現天數<15天' },
         { name: '平均銷貨日數 (B2)', value: inventoryDays !== null ? fmt(inventoryDays, 0) + '天' : '—', pass: null, formula: `存貨 × ${periodDays}天 ÷ 銷貨成本，與同產業比較` },
         { name: '平均收現日數 (B3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: `應收帳款 × ${periodDays}天 ÷ 營收 < 90天` },
       ],
