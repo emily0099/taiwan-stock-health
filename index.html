@@ -92,6 +92,30 @@
   }
   .date-range input[type="date"]:focus { border-color: var(--gold); }
   .date-range .date-sep { color: var(--muted); font-size: 12px; }
+
+  .industry-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .industry-toggle label { font-size: 12px; color: var(--gold); letter-spacing: 1px; white-space: nowrap; }
+  .toggle-group { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .toggle-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+    font-family: 'Space Mono', monospace;
+    background: var(--surface);
+    color: var(--muted);
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+  }
+  .toggle-btn:first-child { border-right: 1px solid var(--border); }
+  .toggle-btn.active { background: var(--gold); color: var(--bg); font-weight: bold; }
+  .toggle-btn:hover:not(.active) { color: var(--gold); }
   .search-box input {
     flex: 1;
     background: var(--surface);
@@ -263,6 +287,15 @@
     <input type="date" id="endDate" />
   </div>
 
+  <div class="industry-toggle">
+    <label>產業類型</label>
+    <div class="toggle-group">
+      <button class="toggle-btn active" id="btnNonCapital" onclick="setIndustryType('non-capital')">非資本密集</button>
+      <button class="toggle-btn" id="btnCapital" onclick="setIndustryType('capital')">資本密集</button>
+    </div>
+    <span style="font-size:11px;color:var(--muted)">影響：現金佔總資產比率 (A2) 的判斷標準</span>
+  </div>
+
   <div class="samples">
     <span style="font-size:11px;color:var(--muted);align-self:center;font-family:'Space Mono',monospace;">試試看：</span>
     <button class="sample-chip" onclick="quickSearch('2330')">2330 台積電</button>
@@ -291,6 +324,15 @@ let ringChart = null;
 
 function getToken() {
   return document.getElementById('tokenInput').value.trim();
+}
+
+function setIndustryType(type) {
+  document.getElementById('btnCapital').classList.toggle('active', type === 'capital');
+  document.getElementById('btnNonCapital').classList.toggle('active', type === 'non-capital');
+}
+
+function isCapitalIntensive() {
+  return document.getElementById('btnCapital').classList.contains('active');
 }
 
 function getLatestQuarterStart() {
@@ -508,7 +550,7 @@ async function analyze() {
       A: [
         { name: '現金流量比率 (A1)', value: cashFlowRatio !== null ? pct(cashFlowRatio) : '—', pass: cashFlowRatio !== null ? cashFlowRatio > 1 : null, formula: '營業現金流 ÷ 流動負債 > 100%' },
         { name: '現金再投資比率 (A1-3)', value: cashReinvestRatio !== null ? pct(cashReinvestRatio) : '—', pass: cashReinvestRatio !== null ? cashReinvestRatio > 0.1 : null, formula: '(營業現金流－股利) ÷ 長期資產+營運資金 > 10%' },
-        { name: '現金佔總資產 (A2)', value: cashToAssets !== null ? pct(cashToAssets) : '—', pass: cashToAssets !== null ? cashToAssets >= 0.1 && cashToAssets <= 0.25 : null, formula: '現金 ÷ 總資產，10%~25%' },
+        { name: '現金佔總資產 (A2)', value: cashToAssets !== null ? pct(cashToAssets) : '—', pass: cashToAssets !== null ? (isCapitalIntensive() ? cashToAssets > 0.25 : cashToAssets >= 0.1 && cashToAssets <= 0.25) : null, formula: isCapitalIntensive() ? '現金 ÷ 總資產 > 25%（資本密集）' : '現金 ÷ 總資產，10%~25%（非資本密集）' },
         { name: '平均收現天數 (A3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: `應收帳款 × ${periodDays}天 ÷ 營收 < 90天` },
       ],
       B: [
