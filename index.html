@@ -575,7 +575,14 @@ async function analyze() {
     const inventoryTurnover = (inventoryAvg && cogs) ? Math.abs(cogs) / inventoryAvg : null;
     const inventoryDays = inventoryTurnover ? periodDays / inventoryTurnover : null;
     // C5: EPS
-    const eps = getLatest(income, 'EPS') ?? getLatest(income, 'BasicEarningsPerShare') ?? null;
+    // EPS：加總查詢期間內所有季的 EPS
+    const startDate = getStartDate();
+    const endDateStr = getEndDate();
+    const epsRows = income
+      .filter(d => (d.type === 'EPS' || d.type === 'BasicEarningsPerShare'))
+      .filter(d => d.date >= startDate && (!endDateStr || d.date <= endDateStr))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const eps = epsRows.length > 0 ? epsRows.reduce((sum, d) => sum + (d.value || 0), 0) : null;
 
     // ── Build evaluation ──────────────────────────────────────────
     // pass: true/false = 紅綠燈判斷；pass: null = 僅顯示數值不判斷
