@@ -437,6 +437,7 @@ async function analyze() {
     const revenue       = getLatestYear(income, 'Revenue');
     const grossProfit   = getLatestYear(income, 'GrossProfit');
     const operatingIncome = getLatestYear(income, 'OperatingIncome');
+    const cogs          = getLatestYear(income, 'CostOfGoodsSold');
 
     const workingCapital = currentAssets && currentLiab ? currentAssets - currentLiab : 0;
     const reinvestDenom = (ppe || 0) + longTermInv + otherAssets + workingCapital;
@@ -476,8 +477,8 @@ async function analyze() {
     // E2: (流動資產 - 存貨 - 預付費用) ÷ 流動負債
     const quickRatio     = (currentAssets && currentLiab) ? (currentAssets - inventory - prepaid) / currentLiab : null;
 
-    // B2: 平均銷貨日數 = 存貨 × 365 ÷ 營收（存貨週轉率倒數）
-    const inventoryDays = (inventory && revenue) ? inventory * 365 / revenue : null;
+    // B2: 平均銷貨日數 = 存貨 × 365 ÷ 銷貨成本（存貨週轉率倒數）
+    const inventoryDays = (inventory && cogs) ? inventory * 365 / Math.abs(cogs) : null;
     // C5: EPS
     const eps = getLatest(income, 'EPS') ?? getLatest(income, 'BasicEarningsPerShare') ?? null;
 
@@ -492,7 +493,7 @@ async function analyze() {
       ],
       B: [
         { name: '總資產週轉率 (B1)', value: assetTurnover !== null ? fmt(assetTurnover) + '次' : '—', pass: assetTurnover !== null ? assetTurnover > 1 : null, formula: '營業利益 ÷ 平均總資產 > 1' },
-        { name: '平均銷貨日數 (B2)', value: inventoryDays !== null ? fmt(inventoryDays, 0) + '天' : '—', pass: null, formula: '存貨 × 365 ÷ 營收，與同產業比較' },
+        { name: '平均銷貨日數 (B2)', value: inventoryDays !== null ? fmt(inventoryDays, 0) + '天' : '—', pass: null, formula: '存貨 × 365 ÷ 銷貨成本，與同產業比較' },
         { name: '平均收現日數 (B3)', value: receivableDays !== null ? fmt(receivableDays, 0) + '天' : '—', pass: receivableDays !== null ? receivableDays <= 90 : null, formula: '應收帳款 × 365 ÷ 營收 < 90天' },
       ],
       C: [
