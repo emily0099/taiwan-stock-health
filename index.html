@@ -5,18 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>台股健診</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0e1a;
-    --surface: #111827;
-    --border: #1e2d45;
-    --gold: #c9a84c;
-    --gold-light: #f0d080;
-    --red: #ff4d6d;
-    --green: #4ade80;
-    --text: #e8e0d0;
-    --muted: #6b7a99;
+    --bg: #F5F2EE;
+    --surface: #FFFFFF;
+    --border: #D8D5D0;
+    --gold: #8ECFCC;
+    --gold-light: #F0EBE3;
+    --red: #c47a7a;
+    --green: #8ECFCC;
+    --text: #1a1614;
+    --muted: #6a6460;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -35,7 +37,7 @@
   .container { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
 
   header { text-align: center; margin-bottom: 48px; }
-  .logo-mark { font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 4px; color: var(--gold); margin-bottom: 16px; }
+  .logo-mark { font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: 4px; color: var(--gold); margin-bottom: 16px; }
   h1 { font-size: clamp(36px, 6vw, 60px); font-weight: 900; letter-spacing: -1px; }
   h1 span { color: var(--gold); }
   .subtitle { margin-top: 10px; color: var(--muted); font-size: 13px; letter-spacing: 1px; }
@@ -61,7 +63,7 @@
     border: 1px solid var(--border);
     border-radius: 3px;
     padding: 10px 14px;
-    font-family: 'Space Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 12px;
     color: var(--text);
     outline: none;
@@ -79,19 +81,76 @@
     flex-wrap: wrap;
   }
   .date-range label { font-size: 12px; color: var(--gold); letter-spacing: 1px; white-space: nowrap; }
-  .date-range input[type="date"] {
+  .date-range input[type="text"] {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 8px 12px;
-    font-family: 'Space Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 12px;
     color: var(--text);
     outline: none;
     cursor: pointer;
   }
-  .date-range input[type="date"]:focus { border-color: var(--gold); }
+  .date-range input[type="text"]:focus { border-color: var(--gold); }
   .date-range .date-sep { color: var(--muted); font-size: 12px; }
+  .date-pickers { display: flex; align-items: center; gap: 10px; }
+  .date-picker-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .date-picker-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+
+  /* flatpickr 主題覆蓋 */
+  .flatpickr-calendar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    font-family: 'Inter', sans-serif;
+  }
+  .flatpickr-months .flatpickr-month,
+  .flatpickr-weekdays,
+  span.flatpickr-weekday {
+    background: var(--surface);
+    color: var(--muted);
+    fill: var(--muted);
+  }
+  .flatpickr-current-month .flatpickr-monthDropdown-months,
+  .flatpickr-current-month input.cur-year {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .flatpickr-day {
+    color: var(--text);
+    border-radius: 4px;
+  }
+  .flatpickr-day:hover {
+    background: var(--gold-light);
+    border-color: var(--gold-light);
+    color: var(--text);
+  }
+  .flatpickr-day.selected,
+  .flatpickr-day.selected:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #fff;
+  }
+  .flatpickr-day.today {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .flatpickr-day.flatpickr-disabled,
+  .flatpickr-day.prevMonthDay,
+  .flatpickr-day.nextMonthDay {
+    color: var(--border);
+  }
+  .flatpickr-months .flatpickr-prev-month,
+  .flatpickr-months .flatpickr-next-month {
+    fill: var(--muted);
+  }
+  .flatpickr-months .flatpickr-prev-month:hover svg,
+  .flatpickr-months .flatpickr-next-month:hover svg {
+    fill: var(--gold);
+  }
+  .flatpickr-innerContainer { border-color: var(--border); }
 
   .industry-toggle {
     display: flex;
@@ -105,7 +164,7 @@
   .toggle-btn {
     padding: 8px 16px;
     font-size: 12px;
-    font-family: 'Space Mono', monospace;
+    font-family: 'Inter', sans-serif;
     background: var(--surface);
     color: var(--muted);
     border: none;
@@ -123,7 +182,7 @@
     border-radius: 4px;
     padding: 16px 24px;
     font-size: 22px;
-    font-family: 'Space Mono', monospace;
+    font-family: 'Inter', sans-serif;
     color: var(--text);
     outline: none;
     transition: border-color 0.2s;
@@ -152,7 +211,7 @@
     color: var(--muted);
     padding: 6px 14px;
     border-radius: 2px;
-    font-family: 'Space Mono', monospace;
+    font-family: 'Inter', sans-serif;
     font-size: 11px;
     cursor: pointer;
     transition: all 0.2s;
@@ -160,7 +219,7 @@
   }
   .sample-chip:hover { border-color: var(--gold); color: var(--gold); }
 
-  .loading { display: none; text-align: center; padding: 60px; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 13px; letter-spacing: 2px; }
+  .loading { display: none; text-align: center; padding: 60px; color: var(--muted); font-family: 'Inter', sans-serif; font-size: 13px; letter-spacing: 2px; }
   .loading.show { display: block; }
   .loading-bar {
     width: 200px;
@@ -201,9 +260,9 @@
   @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
   .stock-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 40px; gap: 24px; flex-wrap: wrap; }
-  .stock-name { font-size: 13px; font-family: 'Space Mono', monospace; color: var(--gold); letter-spacing: 2px; margin-bottom: 6px; }
+  .stock-name { font-size: 13px; font-family: 'Inter', sans-serif; color: var(--gold); letter-spacing: 2px; margin-bottom: 6px; }
   .stock-title { font-size: 36px; font-weight: 900; letter-spacing: -1px; }
-  .stock-period { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'Space Mono', monospace; }
+  .stock-period { font-size: 11px; color: var(--muted); margin-top: 4px; font-family: 'Inter', sans-serif; }
 
   .verdict-badge { padding: 10px 24px; border-radius: 2px; font-size: 14px; font-weight: 900; letter-spacing: 3px; align-self: center; }
   .verdict-badge.good { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid rgba(74,222,128,0.3); }
@@ -215,7 +274,7 @@
 
   .score-ring-wrap { position: relative; width: 180px; height: 180px; margin: 0 auto; }
   .score-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .score-num { font-family: 'Space Mono', monospace; font-size: 42px; font-weight: 700; line-height: 1; }
+  .score-num { font-family: 'Inter', sans-serif; font-size: 42px; font-weight: 700; line-height: 1; }
   .score-label { font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-top: 4px; }
 
   .radar-wrap { height: 260px; position: relative; }
@@ -231,12 +290,12 @@
 
   .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
   .category-name { font-size: 13px; font-weight: 600; letter-spacing: 1px; }
-  .category-score { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); }
+  .category-score { font-family: 'Inter', sans-serif; font-size: 12px; color: var(--muted); }
 
   .indicator-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
   .indicator-row:last-child { border-bottom: none; }
   .indicator-name { color: var(--muted); }
-  .indicator-value { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text); }
+  .indicator-value { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text); }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-left: 8px; }
   .status-dot.pass { background: var(--green); box-shadow: 0 0 6px var(--green); }
   .status-dot.fail { background: var(--red); box-shadow: 0 0 6px var(--red); }
@@ -248,12 +307,12 @@
   .verdict-text p { line-height: 1.9; font-size: 14px; color: #b8b0a0; }
 
   .raw-data { margin-top: 16px; }
-  .raw-toggle { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; font-size: 11px; font-family: 'Space Mono', monospace; cursor: pointer; border-radius: 2px; letter-spacing: 1px; }
+  .raw-toggle { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; font-size: 11px; font-family: 'Inter', sans-serif; cursor: pointer; border-radius: 2px; letter-spacing: 1px; }
   .raw-toggle:hover { border-color: var(--gold); color: var(--gold); }
-  .raw-content { display: none; margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px; font-family: 'Space Mono', monospace; font-size: 11px; color: var(--muted); overflow-x: auto; line-height: 1.8; }
+  .raw-content { display: none; margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); overflow-x: auto; line-height: 1.8; }
   .raw-content.show { display: block; }
 
-  .disclaimer { text-align: center; margin-top: 40px; font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; letter-spacing: 1px; opacity: 0.6; }
+  .disclaimer { text-align: center; margin-top: 40px; font-size: 11px; color: var(--muted); font-family: 'Inter', sans-serif; letter-spacing: 1px; opacity: 0.6; }
 </style>
 </head>
 <body>
@@ -282,9 +341,17 @@
 
   <div class="date-range">
     <label>資料區間</label>
-    <input type="date" id="startDate" />
-    <span class="date-sep">→</span>
-    <input type="date" id="endDate" />
+    <div class="date-pickers">
+      <div class="date-picker-wrap">
+        <span class="date-picker-label">開始</span>
+        <input type="text" id="startDate" placeholder="選擇開始日期" readonly />
+      </div>
+      <span class="date-sep">→</span>
+      <div class="date-picker-wrap">
+        <span class="date-picker-label">結束</span>
+        <input type="text" id="endDate" placeholder="選擇結束日期" readonly />
+      </div>
+    </div>
   </div>
 
   <div class="industry-toggle">
@@ -297,7 +364,7 @@
   </div>
 
   <div class="samples">
-    <span style="font-size:11px;color:var(--muted);align-self:center;font-family:'Space Mono',monospace;">試試看：</span>
+    <span style="font-size:11px;color:var(--muted);align-self:center;font-family:'Inter',sans-serif;">試試看：</span>
     <button class="sample-chip" onclick="quickSearch('2330')">2330 台積電</button>
     <button class="sample-chip" onclick="quickSearch('2412')">2412 中華電</button>
     <button class="sample-chip" onclick="quickSearch('2454')">2454 聯發科</button>
@@ -359,9 +426,17 @@ function getLatestQuarterStart() {
   return `${qYear}-${String(qMonth).padStart(2, '0')}-01`;
 }
 
-// 頁面載入時自動設定起始日
+// 頁面載入時自動設定起始日，並初始化 flatpickr
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('startDate').value = getLatestQuarterStart();
+  const fpConfig = {
+    dateFormat: 'Y-m-d',
+    allowInput: false,
+    disableMobile: true,
+    showMonths: 2,
+    locale: { firstDayOfWeek: 0 },
+  };
+  flatpickr('#startDate', { ...fpConfig, showMonths: 1, defaultDate: getLatestQuarterStart() });
+  flatpickr('#endDate', { ...fpConfig, showMonths: 1 });
 });
 
 function getStartDate() {
@@ -798,7 +873,7 @@ function renderResult(code, name, date, indicators, rawData) {
   if (ringChart) ringChart.destroy();
   ringChart = new Chart(document.getElementById('ringChart').getContext('2d'), {
     type: 'doughnut',
-    data: { datasets: [{ data: [totalScore, 100-totalScore], backgroundColor: [scoreColor, 'rgba(255,255,255,0.05)'], borderWidth: 0, cutout: '78%' }] },
+    data: { datasets: [{ data: [totalScore, 100-totalScore], backgroundColor: [scoreColor, 'rgba(0,0,0,0.08)'], borderWidth: 0, cutout: '78%' }] },
     options: { responsive: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 800 } }
   });
 
@@ -808,11 +883,11 @@ function renderResult(code, name, date, indicators, rawData) {
     type: 'radar',
     data: {
       labels: Object.values(CATEGORY_NAMES),
-      datasets: [{ data: Object.values(catScores).map(s => s * 100), backgroundColor: 'rgba(201,168,76,0.15)', borderColor: '#c9a84c', borderWidth: 2, pointBackgroundColor: '#c9a84c', pointRadius: 4 }]
+      datasets: [{ data: Object.values(catScores).map(s => s * 100), backgroundColor: 'rgba(142,207,204,0.20)', borderColor: '#8ECFCC', borderWidth: 2, pointBackgroundColor: '#8ECFCC', pointRadius: 4 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      scales: { r: { min: 0, max: 100, ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.08)' }, angleLines: { color: 'rgba(255,255,255,0.08)' }, pointLabels: { color: '#6b7a99', font: { family: 'Noto Serif TC', size: 12 } } } },
+      scales: { r: { min: 0, max: 100, ticks: { display: false }, grid: { color: 'rgba(0,0,0,0.10)' }, angleLines: { color: 'rgba(0,0,0,0.10)' }, pointLabels: { color: '#6a6460', font: { family: 'Noto Serif TC', size: 12 } } } },
       plugins: { legend: { display: false } }, animation: { duration: 800 }
     }
   });
