@@ -594,6 +594,20 @@ async function analyze() {
     const currentRatio   = (currentAssets && currentLiab) ? currentAssets / currentLiab : null;
     // E2: (流動資產 - 存貨 - 預付費用) ÷ 流動負債
     const quickRatio     = (currentAssets && currentLiab) ? (currentAssets - inventory - prepaid) / currentLiab : null;
+    // E3: 利息保障倍數 = EBIT ÷ 利息費用；EBIT = 稅前淨利 + 利息費用
+    const interestExpense = getLatestYear(income, 'InterestExpense') || getLatestYear(income, 'FinanceCosts') || null;
+    const preTaxIncome    = getLatestYear(income, 'IncomeTaxExpense') !== null
+      ? (netIncome || 0) + (getLatestYear(income, 'IncomeTaxExpense') || 0)
+      : null;
+    const ebit = (preTaxIncome !== null && interestExpense) ? preTaxIncome + Math.abs(interestExpense) : null;
+    const interestCoverage = (ebit && interestExpense) ? ebit / Math.abs(interestExpense) : null;
+
+    // E3: 利息保障倍數 = EBIT ÷ 利息支出
+    // EBIT = 稅前淨利 + 利息費用
+    const incomeBeforeTax  = getLatestYear(income, 'IncomeBeforeTax');
+    const interestExpense  = getLatestYear(income, 'InterestExpense') || getLatestYear(income, 'FinanceCosts') || 0;
+    const ebit             = (incomeBeforeTax !== null) ? incomeBeforeTax + Math.abs(interestExpense) : null;
+    const interestCoverage = (ebit !== null && interestExpense) ? ebit / Math.abs(interestExpense) : null;
 
     // B2: 存貨周轉率 = 營業成本 ÷ 平均存貨；存貨周轉天數 = 期間天數 ÷ 存貨周轉率
     const inventoryTurnover = (inventoryAvg && cogs) ? Math.abs(cogs) / inventoryAvg : null;
@@ -636,6 +650,7 @@ async function analyze() {
       E: [
         { name: '流動比率 (E1)', value: currentRatio !== null ? pct(currentRatio) : '—', pass: currentRatio !== null ? currentRatio > 2.5 : null, formula: '流動資產 ÷ 流動負債 > 250%' },
         { name: '速動比率 (E2)', value: quickRatio !== null ? pct(quickRatio) : '—', pass: quickRatio !== null ? quickRatio > 1.5 : null, formula: '(流動資產－存貨－預付) ÷ 流動負債 > 150%' },
+        { name: '利息保障倍數 (E3)', value: interestCoverage !== null ? fmt(interestCoverage, 1) + ' 倍' : '—', pass: interestCoverage !== null ? interestCoverage > 2.5 : null, warn: interestCoverage !== null && interestCoverage >= 1 && interestCoverage <= 2.5, formula: 'EBIT ÷ 利息支出 > 2.5倍；< 1倍財務危機' },
       ],
     };
 
@@ -663,6 +678,9 @@ async function analyze() {
       '營業利益(OperatingIncome)': operatingIncome,
       '銷貨成本(CostOfGoodsSold)': cogs,
       '淨利(IncomeAfterTaxes)': netIncome,
+      '利息費用(InterestExpense)': interestExpense,
+      'EBIT': ebit,
+      '利息保障倍數': interestCoverage ? interestCoverage.toFixed(2) : '—',
       '應收帳款周轉率(次)': receivableTurnover ? receivableTurnover.toFixed(2) : '—',
     };
 
