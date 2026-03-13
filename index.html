@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>台股健診</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -81,7 +79,7 @@
     flex-wrap: wrap;
   }
   .date-range label { font-size: 12px; color: var(--gold); letter-spacing: 1px; white-space: nowrap; }
-  .date-range input[type="text"] {
+  .date-range input[type="date"] {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -91,66 +89,14 @@
     color: var(--text);
     outline: none;
     cursor: pointer;
+    -webkit-appearance: none;
   }
-  .date-range input[type="text"]:focus { border-color: var(--gold); }
+  .date-range input[type="date"]:focus { border-color: var(--gold); }
   .date-range .date-sep { color: var(--muted); font-size: 12px; }
   .date-pickers { display: flex; align-items: center; gap: 10px; }
   .date-picker-wrap { display: flex; flex-direction: column; gap: 4px; }
   .date-picker-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
 
-  /* flatpickr 主題覆蓋 */
-  .flatpickr-calendar {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-    font-family: 'Inter', sans-serif;
-  }
-  .flatpickr-months .flatpickr-month,
-  .flatpickr-weekdays,
-  span.flatpickr-weekday {
-    background: var(--surface);
-    color: var(--muted);
-    fill: var(--muted);
-  }
-  .flatpickr-current-month .flatpickr-monthDropdown-months,
-  .flatpickr-current-month input.cur-year {
-    color: var(--text);
-    font-weight: 600;
-  }
-  .flatpickr-day {
-    color: var(--text);
-    border-radius: 4px;
-  }
-  .flatpickr-day:hover {
-    background: var(--gold-light);
-    border-color: var(--gold-light);
-    color: var(--text);
-  }
-  .flatpickr-day.selected,
-  .flatpickr-day.selected:hover {
-    background: var(--gold);
-    border-color: var(--gold);
-    color: #fff;
-  }
-  .flatpickr-day.today {
-    border-color: var(--gold);
-    color: var(--gold);
-  }
-  .flatpickr-day.flatpickr-disabled,
-  .flatpickr-day.prevMonthDay,
-  .flatpickr-day.nextMonthDay {
-    color: var(--border);
-  }
-  .flatpickr-months .flatpickr-prev-month,
-  .flatpickr-months .flatpickr-next-month {
-    fill: var(--muted);
-  }
-  .flatpickr-months .flatpickr-prev-month:hover svg,
-  .flatpickr-months .flatpickr-next-month:hover svg {
-    fill: var(--gold);
-  }
-  .flatpickr-innerContainer { border-color: var(--border); }
 
   .industry-toggle {
     display: flex;
@@ -344,12 +290,12 @@
     <div class="date-pickers">
       <div class="date-picker-wrap">
         <span class="date-picker-label">開始</span>
-        <input type="text" id="startDate" placeholder="選擇開始日期" readonly />
+        <input type="date" id="startDate" />
       </div>
       <span class="date-sep">→</span>
       <div class="date-picker-wrap">
         <span class="date-picker-label">結束</span>
-        <input type="text" id="endDate" placeholder="選擇結束日期" readonly />
+        <input type="date" id="endDate" />
       </div>
     </div>
   </div>
@@ -426,17 +372,9 @@ function getLatestQuarterStart() {
   return `${qYear}-${String(qMonth).padStart(2, '0')}-01`;
 }
 
-// 頁面載入時自動設定起始日，並初始化 flatpickr
+// 頁面載入時自動設定起始日
 document.addEventListener('DOMContentLoaded', () => {
-  const fpConfig = {
-    dateFormat: 'Y-m-d',
-    allowInput: false,
-    disableMobile: true,
-    showMonths: 2,
-    locale: { firstDayOfWeek: 0 },
-  };
-  flatpickr('#startDate', { ...fpConfig, showMonths: 1, defaultDate: getLatestQuarterStart() });
-  flatpickr('#endDate', { ...fpConfig, showMonths: 1 });
+  document.getElementById('startDate').value = getLatestQuarterStart();
 });
 
 function getStartDate() {
