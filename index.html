@@ -137,8 +137,9 @@
   .toggle-btn:first-child { border-right: 1px solid var(--border); }
   .toggle-btn.active { background: var(--gold); color: var(--bg); font-weight: bold; }
   .toggle-btn:hover:not(.active) { color: var(--gold); }
+  .autocomplete-wrap { flex: 1; position: relative; }
   .search-box input {
-    flex: 1;
+    width: 100%;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 4px;
@@ -148,9 +149,28 @@
     color: var(--text);
     outline: none;
     transition: border-color 0.2s;
-    letter-spacing: 3px;
+    letter-spacing: 1px;
+    box-sizing: border-box;
   }
   .search-box input:focus { border-color: var(--gold); }
+  .autocomplete-list {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+    background: var(--surface); border: 1px solid var(--border);
+    border-top: none; border-radius: 0 0 4px 4px;
+    max-height: 300px; overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+  }
+  .autocomplete-item {
+    padding: 12px 20px; cursor: pointer;
+    display: flex; gap: 14px; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover { background: var(--gold-light); }
+  .autocomplete-code { font-family: 'Inter'; font-size: 15px; font-weight: 700; color: var(--gold); min-width: 44px; }
+  .autocomplete-name { font-size: 15px; color: var(--text); }
+  .autocomplete-industry { font-size: 12px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+  .search-result-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; font-family: 'Inter'; letter-spacing: 1px; }
   .search-box button {
     background: var(--gold);
     color: #0a0e1a;
@@ -297,9 +317,13 @@
   </div>
 
   <div class="search-box">
-    <input type="text" id="stockInput" placeholder="輸入股票代碼" maxlength="6" />
+    <div class="autocomplete-wrap">
+      <input type="text" id="stockInput" placeholder="輸入股票代碼或名稱" autocomplete="off" />
+      <div class="autocomplete-list" id="autocompleteList" style="display:none"></div>
+    </div>
     <button onclick="analyze()">健診 →</button>
   </div>
+  <div id="searchResultLabel" class="search-result-label" style="display:none"></div>
 
   <div class="date-range">
     <label>資料區間</label>
@@ -357,6 +381,58 @@ const CATEGORY_NAMES = { A: '現金流量', B: '經營能力', C: '獲利能力'
 
 let radarChart = null;
 let ringChart = null;
+let stockInfoCache = null;
+
+async function loadStockInfo() {
+  if (stockInfoCache) return stockInfoCache;
+  try {
+    const res = await fetch(`${FINMIND_URL}?dataset=TaiwanStockInfo`);
+    const json = await res.json();
+    stockInfoCache = json.data || [];
+  } catch(e) {
+    stockInfoCache = [];
+  }
+  return stockInfoCache;
+}
+
+function getIndustryType(category) {
+  if (!category) return 'non-capital';
+  const capitalKeywords = ['鋼鐵', '水泥', '電力', '天然氣', '航運', '油電燃氣', '玻璃'];
+  if (capitalKeywords.some(k => category.includes(k))) return 'capital';
+  return 'non-capital';
+}
+
+let autocompleteTimeout = null;
+async function updateAutocomplete() {
+  clearTimeout(autocompleteTimeout);
+  autocompleteTimeout = setTimeout(async () => {
+    const query = document.getElementById('stockInput').value.trim();
+    const list = document.getElementById('autocompleteList');
+    if (query.length < 1) { list.style.display = 'none'; return; }
+    const stocks = await loadStockInfo();
+    const matches = stocks
+      .filter(s => s.type === 'twse' || s.type === 'otc')
+      .filter(s => s.stock_id?.startsWith(query) || s.company_name?.includes(query))
+      .slice(0, 8);
+    if (!matches.length) { list.style.display = 'none'; return; }
+    list.innerHTML = matches.map(s => `
+      <div class="autocomplete-item" data-id="${s.stock_id}" data-name="${(s.company_name||'').replace(/"/g,'')}" data-industry="${s.industry_category||''}">
+        <span class="autocomplete-code">${s.stock_id}</span>
+        <span class="autocomplete-name">${s.company_name || ''}</span>
+        <span class="autocomplete-industry">${s.industry_category || ''}</span>
+      </div>
+    `).join('');
+    list.querySelectorAll('.autocomplete-item').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('stockInput').value = el.dataset.id;
+        list.style.display = 'none';
+        setIndustryType(getIndustryType(el.dataset.industry));
+        analyze();
+      });
+    });
+    list.style.display = 'block';
+  }, 200);
+}
 
 function getToken() {
   return document.getElementById('tokenInput').value.trim();
@@ -416,9 +492,10 @@ function setCustom(btn) {
   document.getElementById('customPickers').style.display = 'flex';
 }
 
-// 頁面載入時預設近1年
+// 頁面載入時預設近1年，並預載股票清單
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('startDate').value = quarterBack(4);
+  loadStockInfo(); // 預載，加快之後的自動完成
 });
 
 function getStartDate() {
@@ -511,12 +588,40 @@ function fmt(val, digits = 2) {
 }
 
 async function analyze() {
-  const stockId = document.getElementById('stockInput').value.trim();
-  if (!stockId) return;
+  let query = document.getElementById('stockInput').value.trim();
+  if (!query) return;
 
+  document.getElementById('autocompleteList').style.display = 'none';
   document.getElementById('errorBox').classList.remove('show');
   document.getElementById('result').classList.remove('show');
   document.getElementById('loading').classList.add('show');
+
+  // Resolve name → code if needed
+  const stocks = await loadStockInfo();
+  let matched = stocks.find(s => s.stock_id === query);
+  if (!matched && !/^\d+$/.test(query)) {
+    matched = stocks.find(s => s.company_name?.includes(query));
+    if (!matched) {
+      document.getElementById('loading').classList.remove('show');
+      const box = document.getElementById('errorBox');
+      box.textContent = `找不到「${query}」，請確認股票名稱或代號`;
+      box.classList.add('show');
+      return;
+    }
+    document.getElementById('stockInput').value = matched.stock_id;
+  }
+
+  const stockId = matched?.stock_id || query;
+  let stockName = matched?.company_name || stockId;
+  const industry = matched?.industry_category || '';
+
+  // Auto-detect industry type
+  if (industry) setIndustryType(getIndustryType(industry));
+
+  // Show stock label
+  const label = document.getElementById('searchResultLabel');
+  label.textContent = `${stockId}・${stockName}${industry ? '・' + industry : ''}`;
+  label.style.display = 'block';
 
   try {
     // Fetch all needed datasets in parallel
@@ -525,15 +630,6 @@ async function analyze() {
       fetchFinMind('TaiwanStockFinancialStatements', stockId),
       fetchFinMindWithPrior('TaiwanStockBalanceSheet', stockId),
     ]);
-
-    // Get company name via stock info endpoint
-    let stockName = stockId;
-    try {
-      const infoRes = await fetch(`https://stock-api-zeta-nine.vercel.app/api/finmind?dataset=TaiwanStockInfo`);
-      const infoJson = await infoRes.json();
-      const info = infoJson.data?.find(d => d.stock_id === stockId);
-      if (info) stockName = info.company_name || stockId;
-    } catch(e) {}
 
     const latestDate = [...cashflow, ...income, ...balance]
       .map(d => d.date)
@@ -888,7 +984,18 @@ function quickSearch(code) {
 }
 
 document.getElementById('stockInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') analyze();
+  if (e.key === 'Enter') {
+    document.getElementById('autocompleteList').style.display = 'none';
+    analyze();
+  } else if (e.key === 'Escape') {
+    document.getElementById('autocompleteList').style.display = 'none';
+  }
+});
+document.getElementById('stockInput').addEventListener('input', updateAutocomplete);
+document.addEventListener('click', e => {
+  if (!e.target.closest('.autocomplete-wrap')) {
+    document.getElementById('autocompleteList').style.display = 'none';
+  }
 });
 </script>
 </body>
