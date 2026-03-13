@@ -16,7 +16,7 @@
     --red: #c47a7a;
     --green: #8ECFCC;
     --text: #1a1614;
-    --muted: #6a6460;
+    --muted: #4a4644;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -250,7 +250,7 @@
 
   .verdict-text { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--gold); border-radius: 4px; padding: 24px 28px; }
   .verdict-text h3 { font-size: 12px; letter-spacing: 3px; color: var(--gold); margin-bottom: 12px; }
-  .verdict-text p { line-height: 1.9; font-size: 14px; color: #b8b0a0; }
+  .verdict-text p { line-height: 1.9; font-size: 14px; color: #5a5450; }
 
   .raw-data { margin-top: 16px; }
   .raw-toggle { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; font-size: 11px; font-family: 'Inter', sans-serif; cursor: pointer; border-radius: 2px; letter-spacing: 1px; }
@@ -258,7 +258,7 @@
   .raw-content { display: none; margin-top: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 16px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); overflow-x: auto; line-height: 1.8; }
   .raw-content.show { display: block; }
 
-  .disclaimer { text-align: center; margin-top: 40px; font-size: 11px; color: var(--muted); font-family: 'Inter', sans-serif; letter-spacing: 1px; opacity: 0.6; }
+  .disclaimer { text-align: center; margin-top: 40px; font-size: 11px; color: var(--muted); font-family: 'Inter', sans-serif; letter-spacing: 1px; }
 </style>
 </head>
 <body>
@@ -740,7 +740,7 @@ function renderResult(code, name, date, indicators, rawData) {
       <div class="indicator-row">
         <div>
           <span class="indicator-name">${i.name}</span>
-          ${i.formula ? `<div style="font-size:10px;color:var(--muted);opacity:0.6;margin-top:2px">${i.formula}</div>` : ''}
+          ${i.formula ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">${i.formula}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="indicator-value">${i.value}</span>
