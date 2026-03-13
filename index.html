@@ -516,11 +516,11 @@ function getEndDate() {
 
 function getPeriodDays() {
   // 根據查詢區間計算天數（以季為單位，每季 90 天）
-  const start = new Date(getStartDate());
+  // 沒有指定結束日時，以最新已公布季的季初為基準，避免「今天」造成天數膨脹
+  const start = new Date(getStartDate() + 'T00:00:00');
   const endStr = getEndDate();
-  const end = endStr ? new Date(endStr) : new Date();
+  const end = endStr ? new Date(endStr + 'T00:00:00') : new Date(getLatestQuarterStart() + 'T00:00:00');
 
-  // 計算相差幾個月，換算成季數，每季 90 天
   const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
   const quarters = Math.max(1, Math.round(months / 3));
   return quarters * 90;
