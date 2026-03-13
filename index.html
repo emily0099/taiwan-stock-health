@@ -96,7 +96,22 @@
   .date-pickers { display: flex; align-items: center; gap: 10px; }
   .date-picker-wrap { display: flex; flex-direction: column; gap: 4px; }
   .date-picker-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
-
+  .preset-group { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; flex-wrap: wrap; }
+  .preset-btn {
+    padding: 8px 14px;
+    font-size: 12px;
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--surface);
+    color: var(--muted);
+    border: none;
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .preset-btn:last-child { border-right: none; }
+  .preset-btn.active { background: var(--gold); color: #0a0e1a; font-weight: bold; }
+  .preset-btn:hover:not(.active) { color: var(--gold); }
 
   .industry-toggle {
     display: flex;
@@ -287,7 +302,14 @@
 
   <div class="date-range">
     <label>資料區間</label>
-    <div class="date-pickers">
+    <div class="preset-group">
+      <button class="preset-btn" onclick="setPreset(0, this)">近1季</button>
+      <button class="preset-btn active" onclick="setPreset(4, this)">近1年</button>
+      <button class="preset-btn" onclick="setPreset(12, this)">近3年</button>
+      <button class="preset-btn" onclick="setPreset(20, this)">近5年</button>
+      <button class="preset-btn" onclick="setCustom(this)">自訂</button>
+    </div>
+    <div class="date-pickers" id="customPickers" style="display:none">
       <div class="date-picker-wrap">
         <span class="date-picker-label">開始</span>
         <input type="date" id="startDate" />
@@ -372,9 +394,30 @@ function getLatestQuarterStart() {
   return `${qYear}-${String(qMonth).padStart(2, '0')}-01`;
 }
 
-// 頁面載入時自動設定起始日
+function quarterBack(n) {
+  // 從最新已公布季的季初往前推 n 季（結果仍是季初）
+  const date = new Date(getLatestQuarterStart() + 'T00:00:00');
+  date.setMonth(date.getMonth() - n * 3);
+  return date.toISOString().split('T')[0];
+}
+
+function setPreset(quartersBack, btn) {
+  document.getElementById('startDate').value = quarterBack(quartersBack);
+  document.getElementById('endDate').value = '';
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('customPickers').style.display = 'none';
+}
+
+function setCustom(btn) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('customPickers').style.display = 'flex';
+}
+
+// 頁面載入時預設近1年
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('startDate').value = getLatestQuarterStart();
+  document.getElementById('startDate').value = quarterBack(4);
 });
 
 function getStartDate() {
