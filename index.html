@@ -412,13 +412,13 @@ async function updateAutocomplete() {
     const stocks = await loadStockInfo();
     const matches = stocks
       .filter(s => s.type === 'twse' || s.type === 'otc')
-      .filter(s => s.stock_id?.startsWith(query) || s.company_name?.includes(query))
+      .filter(s => s.stock_id?.startsWith(query) || (s.company_name||s.stock_name)?.includes(query))
       .slice(0, 8);
     if (!matches.length) { list.style.display = 'none'; return; }
     list.innerHTML = matches.map(s => `
-      <div class="autocomplete-item" data-id="${s.stock_id}" data-name="${(s.company_name||'').replace(/"/g,'')}" data-industry="${s.industry_category||''}">
+      <div class="autocomplete-item" data-id="${s.stock_id}" data-name="${((s.company_name||s.stock_name)||'').replace(/"/g,'')}" data-industry="${s.industry_category||''}">
         <span class="autocomplete-code">${s.stock_id}</span>
-        <span class="autocomplete-name">${s.company_name || ''}</span>
+        <span class="autocomplete-name">${s.company_name || s.stock_name || ''}</span>
         <span class="autocomplete-industry">${s.industry_category || ''}</span>
       </div>
     `).join('');
@@ -600,7 +600,7 @@ async function analyze() {
   const stocks = await loadStockInfo();
   let matched = stocks.find(s => s.stock_id === query);
   if (!matched && !/^\d+$/.test(query)) {
-    matched = stocks.find(s => s.company_name?.includes(query));
+    matched = stocks.find(s => (s.company_name||s.stock_name)?.includes(query));
     if (!matched) {
       document.getElementById('loading').classList.remove('show');
       const box = document.getElementById('errorBox');
@@ -612,7 +612,7 @@ async function analyze() {
   }
 
   const stockId = matched?.stock_id || query;
-  let stockName = matched?.company_name || stockId;
+  let stockName = matched?.company_name || matched?.stock_name || stockId;
   const industry = matched?.industry_category || '';
 
   // Auto-detect industry type
